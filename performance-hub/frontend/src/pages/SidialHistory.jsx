@@ -65,25 +65,25 @@ export default function SidialHistory() {
   return (
     <div className="flex flex-col h-full">
       <TopBar title="Storico SIDIAL" onDateChange={setDateRange} onRefresh={handleRefresh} />
-      <div className="flex-1 overflow-y-auto p-6 bg-transparent">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
         {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
         {loading && <LoadingSpinner />}
 
         {!loading && (
           <>
-            <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
               <KpiCard label="Lead totali" value={leads.length} color="blue" />
               <KpiCard label="Lead Google" value={bySource.google} color="green" />
               <KpiCard label="Lead Meta" value={bySource.meta} color="red" />
               <KpiCard label="Ordini storici" value={orders.length} color="purple" />
             </div>
 
-            <div className="mb-4 text-xs text-slate-400 flex gap-6">
+            <div className="mb-4 text-xs text-slate-400 flex flex-col md:flex-row gap-2 md:gap-6">
               <span>Ultimo sync lead: {lastSyncLeads ? lastSyncLeads.toLocaleString('it-IT') : '—'}</span>
               <span>Ultimo sync ordini: {lastSyncOrders ? lastSyncOrders.toLocaleString('it-IT') : '—'}</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-800 text-sm text-slate-200 font-medium">Lead (storico DB)</div>
                 <div className="max-h-[420px] overflow-auto">

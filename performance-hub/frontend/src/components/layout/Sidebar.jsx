@@ -54,19 +54,19 @@ export default function Sidebar() {
   }, []);
 
   return (
-    <aside className="w-56 min-h-screen bg-slate-950/80 backdrop-blur border-r border-slate-800 flex flex-col px-3 py-5 shrink-0">
-      <div className="text-slate-100 font-semibold text-sm px-3 mb-6 tracking-tight">
+    <aside className="w-full md:w-56 md:min-h-screen bg-slate-950/80 backdrop-blur border-b md:border-b-0 md:border-r border-slate-800 flex flex-col px-3 py-3 md:py-5 shrink-0">
+      <div className="text-slate-100 font-semibold text-sm px-3 mb-3 md:mb-6 tracking-tight">
         Performance <span className="text-emerald-400">Hub</span>
       </div>
 
-      <nav className="flex flex-col gap-1 flex-1">
+      <nav className="flex flex-row md:flex-col gap-1 flex-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0">
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+              `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap ${
                 isActive
                   ? 'bg-slate-800 text-slate-100 font-medium border border-slate-700'
                   : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
@@ -79,7 +79,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-slate-800 pt-4 px-3 flex flex-col gap-2">
+      <div className="hidden md:flex border-t border-slate-800 pt-4 px-3 flex-col gap-2">
         <p className="text-xs text-slate-500 mb-1 uppercase tracking-wide">Stato API</p>
         {[
           ['Sidial', apiStatus.sidial],

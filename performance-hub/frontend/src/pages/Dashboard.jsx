@@ -400,7 +400,7 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-full">
       <TopBar title="Dashboard" onDateChange={setDateRange} onRefresh={handleRefresh} />
-      <div className="flex-1 overflow-y-auto p-6 bg-transparent">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
 
         {errors.length > 0 && (
           <div className="flex flex-col gap-2 mb-4">
@@ -444,14 +444,14 @@ export default function Dashboard() {
               />
             </div>
 
-            <div className="grid grid-cols-4 gap-3 mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
               <KpiCard label="Lead Totali" value={totalLeads.toLocaleString('it-IT')} color="blue" />
               <KpiCard label="Spesa Totale" value={'€ ' + totalSpend.toLocaleString('it-IT', { minimumFractionDigits: 2 })} color="red" />
               <KpiCard label="CPL Medio" value={avgCpl !== '—' ? '€ ' + avgCpl : '—'} color="purple" />
               <KpiCard label="Ordini" value={totalOrders.toLocaleString('it-IT')} color="green" />
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-5">
               <KpiCard label="Tasso Conv." value={convRate + '%'} sub="lead → ordine" color="green" />
               <KpiCard label="Revenue Stim." value={'€ ' + revenue.toLocaleString('it-IT')} sub="€50/ordine placeholder" color="blue" />
               <KpiCard label="ROAS" value={roas} sub="revenue / spesa" color="purple" />
@@ -464,7 +464,7 @@ export default function Dashboard() {
               )}
 
               <div className="overflow-x-auto">
-                <table className="w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+                <table className="w-full min-w-[760px] text-sm border border-slate-800 rounded-lg overflow-hidden">
                   <thead className="bg-slate-900 border-b border-slate-700">
                     <tr>
                       {['Nome', 'Speso', 'Lead', 'CPL', 'Ordini', 'CPA', 'Conv %'].map((h) => (
@@ -518,7 +518,7 @@ export default function Dashboard() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5">
                 <p className="text-sm font-medium text-slate-200 mb-3">Spesa per fonte</p>
                 <SourceBarChart metaSpend={metaSpend} googleSpend={googleSpend} />

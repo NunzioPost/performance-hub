@@ -10,7 +10,7 @@ import SidialHistory from './pages/SidialHistory';
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="flex h-screen overflow-hidden bg-transparent">
+      <div className="flex min-h-screen md:h-screen flex-col md:flex-row overflow-hidden bg-transparent">
         <Sidebar />
         <main className="flex-1 overflow-hidden flex flex-col">
           <Routes>

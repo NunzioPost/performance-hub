@@ -123,14 +123,14 @@ export default function Leads() {
   return (
     <div className="flex flex-col h-full">
       <TopBar title="Lead" onDateChange={setDateRange} onRefresh={handleRefresh} />
-      <div className="flex-1 overflow-y-auto p-6 bg-transparent">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
 
         {errors.map((e, i) => <ErrorBanner key={i} message={e} onRetry={handleRefresh} />)}
         {loading && <LoadingSpinner />}
 
         {!loading && (
           <>
-            <div className="grid grid-cols-2 gap-3 mb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               <KpiCard label="Lead Google" value={googleLeads.length} color="blue" />
               <KpiCard label="Lead Meta" value={metaLeads.length} color="red" />
             </div>

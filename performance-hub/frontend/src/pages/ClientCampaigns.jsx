@@ -245,10 +245,10 @@ export default function ClientCampaigns() {
         <p className="text-xs text-slate-400 mt-0.5">Clicca un cliente e gestisci le sue campagne, mapping SIDIAL e regole naming.</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 bg-transparent flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent flex flex-col gap-4">
         {error && <ErrorBanner message={error} onRetry={reload} />}
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div className="flex items-center gap-2">
             <button onClick={reload} className="text-xs px-3 py-1.5 border border-slate-700 text-slate-200 rounded-lg hover:bg-slate-800 flex items-center gap-1">
               <RefreshCw size={12} /> Ricarica
@@ -260,7 +260,7 @@ export default function ClientCampaigns() {
           {status && <span className={`text-xs ${status.ok ? 'text-emerald-300' : 'text-rose-300'}`}>{status.msg}</span>}
         </div>
 
-        <div className="grid grid-cols-[280px_1fr] gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-4">
           <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm text-slate-100 font-semibold">Clienti</h2>
@@ -289,7 +289,7 @@ export default function ClientCampaigns() {
               <>
                 <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
                   <h2 className="text-sm text-slate-100 font-semibold mb-3">Impostazioni Cliente: {selectedClient.name}</h2>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                     <div>
                       <label className="block text-slate-400 mb-1">ID Cliente</label>
                       <input
@@ -365,9 +365,9 @@ export default function ClientCampaigns() {
                         <p className="text-xs text-slate-300">Mapping Lead SIDIAL</p>
                         <button onClick={addLeadMapping} className="text-xs px-2 py-1 border border-slate-700 rounded text-slate-200 hover:bg-slate-800">Aggiungi</button>
                       </div>
-                      <div className="grid grid-cols-7 gap-2 text-xs text-slate-400 mb-1"><span>ID</span><span>Source</span><span>Campaign</span><span>List</span><span>Label</span><span>Internal Name</span><span /></div>
+                      <div className="hidden md:grid grid-cols-7 gap-2 text-xs text-slate-400 mb-1"><span>ID</span><span>Source</span><span>Campaign</span><span>List</span><span>Label</span><span>Internal Name</span><span /></div>
                       {selectedCampaign.sidial.leadMappings.map((m, idx) => (
-                        <div key={m.id || idx} className="grid grid-cols-7 gap-2 mb-1">
+                        <div key={m.id || idx} className="grid grid-cols-1 md:grid-cols-7 gap-2 mb-1 border border-slate-800 md:border-0 rounded-lg md:rounded-none p-2 md:p-0">
                           <input value={m.id || ''} onChange={(e) => updateCampaignById(selectedCampaign.id, (c) => { c.sidial.leadMappings[idx].id = e.target.value; })} className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200" />
                           <select value={m.source || 'google'} onChange={(e) => updateCampaignById(selectedCampaign.id, (c) => { c.sidial.leadMappings[idx].source = e.target.value; })} className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"><option value="google">google</option><option value="meta">meta</option></select>
                           <input value={m.sidialCampaignId || ''} onChange={(e) => updateCampaignById(selectedCampaign.id, (c) => { c.sidial.leadMappings[idx].sidialCampaignId = e.target.value; })} className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200" />
@@ -384,9 +384,9 @@ export default function ClientCampaigns() {
                         <p className="text-xs text-slate-300">Mapping Ordini SIDIAL (Lista)</p>
                         <button onClick={addOrderMapping} className="text-xs px-2 py-1 border border-slate-700 rounded text-slate-200 hover:bg-slate-800">Aggiungi</button>
                       </div>
-                      <div className="grid grid-cols-5 gap-2 text-xs text-slate-400 mb-1"><span>ID</span><span>Source</span><span>Lista SIDIAL</span><span>Internal Name</span><span /></div>
+                      <div className="hidden md:grid grid-cols-5 gap-2 text-xs text-slate-400 mb-1"><span>ID</span><span>Source</span><span>Lista SIDIAL</span><span>Internal Name</span><span /></div>
                       {selectedCampaign.sidial.orderListMappings.map((m, idx) => (
-                        <div key={m.id || idx} className="grid grid-cols-5 gap-2 mb-1">
+                        <div key={m.id || idx} className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-1 border border-slate-800 md:border-0 rounded-lg md:rounded-none p-2 md:p-0">
                           <input value={m.id || ''} onChange={(e) => updateCampaignById(selectedCampaign.id, (c) => { c.sidial.orderListMappings[idx].id = e.target.value; })} className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200" />
                           <select value={m.source || 'google'} onChange={(e) => updateCampaignById(selectedCampaign.id, (c) => { c.sidial.orderListMappings[idx].source = e.target.value; })} className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"><option value="google">google</option><option value="meta">meta</option></select>
                           <input value={m.sidialListName || ''} onChange={(e) => updateCampaignById(selectedCampaign.id, (c) => { c.sidial.orderListMappings[idx].sidialListName = e.target.value; })} className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200" />
@@ -396,7 +396,7 @@ export default function ClientCampaigns() {
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                       {['google', 'meta'].map((channel) => {
                         const key = channel === 'google' ? 'googleRules' : 'metaRules';
                         const rows = selectedCampaign.attribution[key];
@@ -406,9 +406,9 @@ export default function ClientCampaigns() {
                               <p className="text-xs text-slate-300">Regole {channel.toUpperCase()}</p>
                               <button onClick={() => addRule(channel)} className="text-xs px-2 py-1 border border-slate-700 rounded text-slate-200 hover:bg-slate-800">Aggiungi</button>
                             </div>
-                            <div className="grid grid-cols-5 gap-2 text-xs text-slate-400 mb-1"><span>ID</span><span>Type</span><span>Match</span><span>Internal Name</span><span /></div>
+                            <div className="hidden md:grid grid-cols-5 gap-2 text-xs text-slate-400 mb-1"><span>ID</span><span>Type</span><span>Match</span><span>Internal Name</span><span /></div>
                             {rows.map((r, idx) => (
-                              <div key={r.id || idx} className="grid grid-cols-5 gap-2 mb-1">
+                              <div key={r.id || idx} className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-1 border border-slate-800 md:border-0 rounded-lg md:rounded-none p-2 md:p-0">
                                 <input value={r.id || ''} onChange={(e) => updateCampaignById(selectedCampaign.id, (c) => { c.attribution[key][idx].id = e.target.value; })} className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200" />
                                 <select value={r.matchType || 'contains'} onChange={(e) => updateCampaignById(selectedCampaign.id, (c) => { c.attribution[key][idx].matchType = e.target.value; })} className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"><option value="contains">contains</option><option value="equals">equals</option><option value="regex">regex</option></select>
                                 <input value={r.matchValue || ''} onChange={(e) => updateCampaignById(selectedCampaign.id, (c) => { c.attribution[key][idx].matchValue = e.target.value; })} className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200" />
