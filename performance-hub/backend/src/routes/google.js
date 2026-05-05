@@ -6,13 +6,13 @@ const router = Router();
 // GET /api/google/insights?dateFrom=2024-01-01 00:00:00&dateTo=2024-01-31 23:59:59
 router.get('/insights', async (req, res, next) => {
   try {
-    const { dateFrom, dateTo } = req.query;
+    const { dateFrom, dateTo, forceSync } = req.query;
     if (!dateFrom || !dateTo) return res.status(400).json({ error: true, message: 'dateFrom e dateTo obbligatori' });
 
     const from = dateFrom.split(' ')[0];
     const to = dateTo.split(' ')[0];
 
-    const data = await getInsights(from, to);
+    const data = await getInsights(from, to, { forceSync: String(forceSync || '') === '1' });
     res.json({ success: true, data });
   } catch (e) { next(e); }
 });

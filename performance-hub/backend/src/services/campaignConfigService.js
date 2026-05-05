@@ -655,6 +655,72 @@ function matchesRule(rule, text) {
   return t.includes(v);
 }
 
+function getInternalCampaignNameForChannel(campaign, channel) {
+  const ch = normalizeText(channel);
+  const ruleList = ch === 'google'
+    ? (campaign?.attribution?.googleRules || [])
+    : ch === 'meta'
+      ? (campaign?.attribution?.metaRules || [])
+      : [];
+  const activeRule = ruleList.find((r) => r?.active !== false && String(r?.internalCampaignName || '').trim());
+  if (activeRule?.internalCampaignName) return String(activeRule.internalCampaignName);
+
+  const leadMap = (campaign?.sidial?.leadMappings || [])
+    .find((m) => m?.active !== false && normalizeText(m?.source) === ch && String(m?.internalCampaignName || '').trim());
+  if (leadMap?.internalCampaignName) return String(leadMap.internalCampaignName);
+
+  const orderMap = (campaign?.sidial?.orderListMappings || [])
+    .find((m) => m?.active !== false && normalizeText(m?.source) === ch && String(m?.internalCampaignName || '').trim());
+  if (orderMap?.internalCampaignName) return String(orderMap.internalCampaignName);
+
+  return null;
+}
+
+function fallbackAttributionByNames(channel, campaignName, config) {
+  const text = normalizeText(campaignName);
+  if (!text) return null;
+
+  const clientsById = new Map((config.clients || []).map((c) => [String(c.id), c]));
+  const activeCampaigns = (config.campaigns || []).filter((c) => c?.active !== false);
+  const scored = [];
+
+  for (const c of activeCampaigns) {
+    const client = clientsById.get(String(c.clientId || ''));
+    const campaignNorm = normalizeText(c.name);
+    const clientNorm = normalizeText(client?.name || c.clientId);
+    let score = 0;
+
+    if (campaignNorm && text.includes(campaignNorm)) score += 12;
+    if (clientNorm && text.includes(clientNorm)) score += 6;
+
+    const channelRules = normalizeText(channel) === 'google'
+      ? (c.attribution?.googleRules || [])
+      : normalizeText(channel) === 'meta'
+        ? (c.attribution?.metaRules || [])
+        : [];
+    for (const rule of channelRules) {
+      if (rule?.active === false) continue;
+      const mv = normalizeText(rule?.matchValue);
+      if (mv && text.includes(mv)) score += 20;
+    }
+
+    if (score > 0) scored.push({ campaign: c, client, score });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  if (!best) return null;
+
+  return {
+    clientId: best.campaign.clientId || null,
+    brand: best.campaign.clientId || null,
+    campaignId: best.campaign.id || null,
+    crmCampaignName: best.campaign.name || null,
+    internalCampaignName: getInternalCampaignNameForChannel(best.campaign, channel),
+    matchedRuleId: null
+  };
+}
+
 async function getConfigAsync() {
   if (cache) return cache;
 
@@ -744,6 +810,9 @@ export async function matchCampaignAttribution(channel, campaignName) {
 
   const rule = rules.find((r) => matchesRule(r, campaignName));
   if (!rule) {
+    const fallback = fallbackAttributionByNames(ch, campaignName, config);
+    if (fallback) return fallback;
+
     return {
       clientId: null,
       brand: null,

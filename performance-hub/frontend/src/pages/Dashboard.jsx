@@ -143,7 +143,13 @@ export default function Dashboard() {
   const errors = [e1, e2, e3, e4, e5].filter(Boolean);
 
   const refreshAppliedRange = useCallback(async () => {
-    await Promise.allSettled([r1(), r2(), r3({ forceSync: true }), r4(), r5()]);
+    await Promise.allSettled([
+      r1(),
+      r2(),
+      r3({ forceSync: true }),
+      r4({ forceSync: true }),
+      r5({ forceSync: true })
+    ]);
   }, [r1, r2, r3, r4, r5]);
 
   const handleRefresh = useCallback(async () => {

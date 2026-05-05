@@ -26,7 +26,7 @@ export function useGoogleInsights(dateFrom, dateTo) {
   const [fetchedAt, setFetchedAt] = useState(cached?.fetchedAt ? new Date(cached.fetchedAt) : null);
 
   const fetch = useCallback(async (options = {}) => {
-    const { force = false } = options;
+    const { force = false, forceSync = false } = options;
     if (!dateFrom || !dateTo) return;
 
     if (!force) {
@@ -42,7 +42,9 @@ export function useGoogleInsights(dateFrom, dateTo) {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/google/insights', { params: { dateFrom, dateTo } });
+      const res = await api.get('/google/insights', {
+        params: { dateFrom, dateTo, forceSync: forceSync ? 1 : 0 }
+      });
       const data = res.data.data;
       const now = new Date();
       setInsights(data);
@@ -57,6 +59,6 @@ export function useGoogleInsights(dateFrom, dateTo) {
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  const refetch = useCallback(() => fetch({ force: true }), [fetch]);
+  const refetch = useCallback((options = {}) => fetch({ force: true, ...options }), [fetch]);
   return { insights, loading, error, fetchedAt, refetch };
 }

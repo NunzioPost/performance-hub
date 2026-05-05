@@ -190,12 +190,13 @@ async function fetchMetaInsightsLive(dateFrom, dateTo) {
   };
 }
 
-export async function getInsights(dateFrom, dateTo) {
+export async function getInsights(dateFrom, dateTo, options = {}) {
+  const { forceSync = false } = options;
   const channel = 'meta';
   const cacheKey = `${channel}:${dateFrom}:${dateTo}`;
   const includesToday = rangeIncludesToday(dateFrom, dateTo);
 
-  if (marketingStoreEnabled()) {
+  if (marketingStoreEnabled() && !forceSync) {
     try {
       const sync = await getMarketingSyncState(cacheKey);
       if (isFresh(sync, includesToday)) {
