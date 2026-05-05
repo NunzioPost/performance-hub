@@ -147,8 +147,8 @@ export default function Dashboard() {
       r1(),
       r2(),
       r3({ forceSync: true }),
-      r4({ forceSync: true }),
-      r5({ forceSync: true })
+      r4(),
+      r5()
     ]);
   }, [r1, r2, r3, r4, r5]);
 

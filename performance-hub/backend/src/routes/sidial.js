@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  searchLeads, getOrders, getOrderDetails, buildOrdersCacheKey, getSidialStatus
+  searchLeads, getOrders, getOrderDetails, buildOrdersCacheKey, getSidialStatus, scheduleOrdersSync
 } from '../services/sidialService.js';
 import { getSidialPairsBySource } from '../services/campaignConfigService.js';
 import {
@@ -53,10 +53,19 @@ router.get('/orders', async (req, res, next) => {
 
     const includeUnattr = String(includeUnattributed || '') === '1';
     const manualSync = String(forceSync || '') === '1';
+    let syncQueued = false;
+    let syncRunning = false;
+
+    // SWR: non bloccare la risposta utente su sync pesanti.
+    if (manualSync) {
+      const state = scheduleOrdersSync(dateFrom, dateTo, { includeUnattributed: includeUnattr });
+      syncQueued = state.queued;
+      syncRunning = state.running;
+    }
 
     const orders = await getOrders(dateFrom, dateTo, {
       includeUnattributed: includeUnattr,
-      forceSync: manualSync
+      forceSync: false
     });
 
     let lastSyncAt = null;
@@ -67,7 +76,15 @@ router.get('/orders', async (req, res, next) => {
       syncStatus = sync?.status || null;
     }
 
-    res.json({ success: true, count: orders.length, lastSyncAt, syncStatus, data: orders });
+    res.json({
+      success: true,
+      count: orders.length,
+      lastSyncAt,
+      syncStatus,
+      syncQueued,
+      syncRunning,
+      data: orders
+    });
   } catch (e) { next(e); }
 });
 

@@ -12,6 +12,7 @@ import {
 } from './sidialStoreService.js';
 
 const orderAttributionCache = new Map();
+const ordersSyncInFlight = new Map();
 const ON_DEMAND_ENRICH_MAX = Number(process.env.ORDERS_ON_DEMAND_ENRICH_MAX || 40);
 const ON_DEMAND_ENRICH_CONCURRENCY = Number(process.env.ORDERS_ON_DEMAND_ENRICH_CONCURRENCY || 6);
 const ORDERS_HISTORICAL_ENRICH_MAX = Number(process.env.ORDERS_HISTORICAL_ENRICH_MAX || 500);
@@ -176,6 +177,31 @@ function getSidialConfig() {
 
 export function buildOrdersCacheKey(dateFrom, dateTo, includeUnattributed = false) {
   return `orders:${dateFrom}:${dateTo}:includeUnattributed=${includeUnattributed ? '1' : '0'}`;
+}
+
+function buildOrdersSyncJobKey(dateFrom, dateTo, includeUnattributed = false) {
+  return `${dateFrom}|${dateTo}|${includeUnattributed ? '1' : '0'}`;
+}
+
+export function scheduleOrdersSync(dateFrom, dateTo, options = {}) {
+  const { includeUnattributed = false } = options;
+  const key = buildOrdersSyncJobKey(dateFrom, dateTo, includeUnattributed);
+  if (ordersSyncInFlight.has(key)) {
+    return { queued: false, running: true };
+  }
+
+  const task = (async () => {
+    try {
+      await getOrders(dateFrom, dateTo, { includeUnattributed, forceSync: true });
+    } catch (err) {
+      console.warn(`[ORDERS-SYNC] ${key} failed: ${err.message}`);
+    } finally {
+      ordersSyncInFlight.delete(key);
+    }
+  })();
+
+  ordersSyncInFlight.set(key, task);
+  return { queued: true, running: false };
 }
 
 async function deriveOrderAttribution(fields = {}) {
