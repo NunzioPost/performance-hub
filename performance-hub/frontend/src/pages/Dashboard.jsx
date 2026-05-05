@@ -5,7 +5,7 @@ import KpiCard from '../components/ui/KpiCard';
 import TrendLineChart from '../components/charts/TrendLineChart';
 import SourceBarChart from '../components/charts/SourceBarChart';
 import FunnelChart from '../components/charts/FunnelChart';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import DataLoadingState from '../components/ui/DataLoadingState';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import { useSidialLeads } from '../hooks/useSidialLeads';
 import { useSidialOrders } from '../hooks/useSidialOrders';
@@ -144,8 +144,8 @@ export default function Dashboard() {
 
   const refreshAppliedRange = useCallback(async () => {
     await Promise.allSettled([
-      r1(),
-      r2(),
+      r1({ forceSync: true }),
+      r2({ forceSync: true }),
       r3({ forceSync: true }),
       r4(),
       r5()
@@ -162,11 +162,6 @@ export default function Dashboard() {
     }
     prevLoadingRef.current = loading;
   }, [loading]);
-
-  useEffect(() => {
-    const timer = setInterval(() => { refreshAppliedRange(); }, 15 * 60 * 1000);
-    return () => clearInterval(timer);
-  }, [refreshAppliedRange]);
 
   useEffect(() => {
     writeRangeState('ph:dashboard:range:v2', dateRange);
@@ -406,7 +401,17 @@ export default function Dashboard() {
           </div>
         )}
 
-        {loading && <LoadingSpinner />}
+        {loading && (
+          <DataLoadingState
+            title="Caricamento dashboard"
+            messages={[
+              'Recupero lead e ordini dalla cache...',
+              'Verifico aggiornamenti disponibili...',
+              'Ricalcolo KPI e spaccato clienti...',
+              'Impagino i grafici...'
+            ]}
+          />
+        )}
 
         {!loading && (
           <>

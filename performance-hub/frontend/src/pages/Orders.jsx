@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import TopBar from '../components/layout/TopBar';
 import KpiCard from '../components/ui/KpiCard';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import DataLoadingState from '../components/ui/DataLoadingState';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import { useSidialOrders } from '../hooks/useSidialOrders';
 import api from '../lib/api';
@@ -48,14 +48,6 @@ export default function Orders() {
     writeRangeState('ph:orders:range:v2', dateRange);
   }, [dateRange]);
 
-  // Poll leggero: aggiorna solo da cache DB (no forceSync) per recepire i refresh automatici backend.
-  useEffect(() => {
-    const timer = setInterval(() => {
-      refetch({ forceSync: false });
-    }, 60 * 1000);
-    return () => clearInterval(timer);
-  }, [refetch]);
-
   function handleRefresh() {
     // Refresh manuale: forza sync live su SIDIAL anche su range storico.
     refetch({ forceSync: true });
@@ -80,7 +72,16 @@ export default function Orders() {
       <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
 
         {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
-        {loading && <LoadingSpinner />}
+        {loading && (
+          <DataLoadingState
+            title="Caricamento ordini"
+            messages={[
+              'Leggo ordini gia salvati...',
+              'Verifico dettagli disponibili...',
+              'Aggiorno lo stato ordini...'
+            ]}
+          />
+        )}
 
         {!loading && (
           <>

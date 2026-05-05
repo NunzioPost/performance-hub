@@ -3,7 +3,7 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import api from '../lib/api';
 import TopBar from '../components/layout/TopBar';
 import KpiCard from '../components/ui/KpiCard';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import DataLoadingState from '../components/ui/DataLoadingState';
 import ErrorBanner from '../components/ui/ErrorBanner';
 
 function toDateTime(date, isEnd) {
@@ -67,7 +67,16 @@ export default function SidialHistory() {
       <TopBar title="Storico SIDIAL" onDateChange={setDateRange} onRefresh={handleRefresh} />
       <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
         {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
-        {loading && <LoadingSpinner />}
+        {loading && (
+          <DataLoadingState
+            title="Caricamento storico SIDIAL"
+            messages={[
+              'Recupero lead storiche...',
+              'Recupero ordini storici...',
+              'Allineo timestamp di sync...'
+            ]}
+          />
+        )}
 
         {!loading && (
           <>

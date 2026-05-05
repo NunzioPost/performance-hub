@@ -25,7 +25,7 @@ router.get('/token-status', async (req, res, next) => {
 // type: "google" | "meta"
 router.get('/leads', async (req, res, next) => {
   try {
-    const { dateFrom, dateTo, type } = req.query;
+    const { dateFrom, dateTo, type, forceSync } = req.query;
     if (!dateFrom || !dateTo) return res.status(400).json({ error: true, message: 'dateFrom e dateTo sono obbligatori' });
     if (!type || !['google', 'meta'].includes(String(type).toLowerCase())) {
       return res.status(400).json({ error: true, message: 'type deve essere google o meta' });
@@ -40,7 +40,9 @@ router.get('/leads', async (req, res, next) => {
       });
     }
 
-    const leads = await searchLeads(pairs, dateFrom, dateTo);
+    const leads = await searchLeads(pairs, dateFrom, dateTo, {
+      forceSync: String(forceSync || '') === '1'
+    });
     res.json({ success: true, count: leads.length, data: leads });
   } catch (e) { next(e); }
 });

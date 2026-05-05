@@ -256,17 +256,19 @@ async function enrichOrdersWithAttribution(orders) {
   }));
 }
 
-export async function searchLeads(campaignListPairs, dateFrom, dateTo) {
+export async function searchLeads(campaignListPairs, dateFrom, dateTo, options = {}) {
+  const { forceSync = false } = options;
   const source = String(campaignListPairs?.[0]?.source || '').toLowerCase();
   const includesToday = rangeIncludesToday(dateFrom, dateTo);
   const cacheKey = `leads:${source}:${dateFrom}:${dateTo}`;
 
-  if (sidialStoreEnabled()) {
+  if (sidialStoreEnabled() && !forceSync) {
     try {
+      const cached = await getLeadsByRange({ source, dateFrom, dateTo });
+      if (cached.length > 0) return cached;
+
       const sync = await getSyncState(cacheKey);
-      if (isSyncFresh(sync, includesToday)) {
-        return await getLeadsByRange({ source, dateFrom, dateTo });
-      }
+      if (isSyncFresh(sync, includesToday)) return cached;
     } catch {
       // fallback live
     }
@@ -383,6 +385,9 @@ export async function getOrders(dateFrom, dateTo, options = {}) {
       const cachedAllRaw = await getOrdersByRange({ dateFrom, dateTo, includeUnattributed: true });
       const cachedAll = cachedAllRaw.filter((o) => isOrderInAllowedServices(o, allowedServices));
       const cached = includeUnattributed ? cachedAll : cachedAll.filter(hasOrderAttribution);
+
+      // Cache-first rigoroso: niente sync live automatico se esiste gia un set locale/DB.
+      if (cached.length > 0) return cached;
 
       if (!includesToday && !includeUnattributed && cachedAll.length > cached.length) {
         const pending = cachedAll

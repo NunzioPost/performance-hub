@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import TopBar from '../components/layout/TopBar';
 import KpiCard from '../components/ui/KpiCard';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import DataLoadingState from '../components/ui/DataLoadingState';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import { useSidialLeads } from '../hooks/useSidialLeads';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -107,7 +107,8 @@ export default function Leads() {
   const errors = [eg, em].filter(Boolean);
 
   const handleRefresh = () => {
-    rg(); rm();
+    rg({ forceSync: true });
+    rm({ forceSync: true });
   };
 
   useEffect(() => {
@@ -126,7 +127,16 @@ export default function Leads() {
       <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
 
         {errors.map((e, i) => <ErrorBanner key={i} message={e} onRetry={handleRefresh} />)}
-        {loading && <LoadingSpinner />}
+        {loading && (
+          <DataLoadingState
+            title="Caricamento lead"
+            messages={[
+              'Recupero lead salvate...',
+              'Allineo stato campagne/liste...',
+              'Aggiorno tabella lead...'
+            ]}
+          />
+        )}
 
         {!loading && (
           <>

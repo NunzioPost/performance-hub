@@ -3,7 +3,7 @@ import api from '../lib/api';
 
 function readCache(key) {
   try {
-    const raw = sessionStorage.getItem(key);
+    const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -12,7 +12,7 @@ function readCache(key) {
 
 function writeCache(key, value) {
   try {
-    sessionStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(key, JSON.stringify(value));
   } catch {}
 }
 
@@ -25,7 +25,7 @@ export function useSidialLeads(dateFrom, dateTo, type) {
   const [error, setError] = useState(null);
 
   const fetch = useCallback(async (options = {}) => {
-    const { force = false } = options;
+    const { force = false, forceSync = false } = options;
     if (!dateFrom || !dateTo) return;
 
     if (!force) {
@@ -40,7 +40,7 @@ export function useSidialLeads(dateFrom, dateTo, type) {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/sidial/leads', { params: { dateFrom, dateTo, type } });
+      const res = await api.get('/sidial/leads', { params: { dateFrom, dateTo, type, forceSync: forceSync ? 1 : 0 } });
       const data = res.data.data || [];
       setLeads(data);
       writeCache(cacheKey, { data, fetchedAt: new Date().toISOString() });
@@ -53,6 +53,6 @@ export function useSidialLeads(dateFrom, dateTo, type) {
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  const refetch = useCallback(() => fetch({ force: true }), [fetch]);
+  const refetch = useCallback((options = {}) => fetch({ force: true, ...options }), [fetch]);
   return { leads, loading, error, refetch };
 }

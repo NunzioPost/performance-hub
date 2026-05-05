@@ -5,7 +5,7 @@ const ORDERS_TIMEOUT_MS = 90000;
 
 function readCache(key) {
   try {
-    const raw = sessionStorage.getItem(key);
+    const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -14,7 +14,7 @@ function readCache(key) {
 
 function writeCache(key, value) {
   try {
-    sessionStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(key, JSON.stringify(value));
   } catch {}
 }
 
