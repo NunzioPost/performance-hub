@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getInsights } from '../services/googleService.js';
+import { getInsights, getTokenStatus } from '../services/googleService.js';
 
 const router = Router();
 
@@ -14,6 +14,14 @@ router.get('/insights', async (req, res, next) => {
 
     const data = await getInsights(from, to, { forceSync: String(forceSync || '') === '1' });
     res.json({ success: true, data });
+  } catch (e) { next(e); }
+});
+
+// GET /api/google/token-status
+router.get('/token-status', async (req, res, next) => {
+  try {
+    const status = await getTokenStatus();
+    res.json(status);
   } catch (e) { next(e); }
 });
 

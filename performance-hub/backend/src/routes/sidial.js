@@ -1,5 +1,7 @@
 import { Router } from 'express';
-import { searchLeads, getOrders, getOrderDetails, buildOrdersCacheKey } from '../services/sidialService.js';
+import {
+  searchLeads, getOrders, getOrderDetails, buildOrdersCacheKey, getSidialStatus
+} from '../services/sidialService.js';
 import { getSidialPairsBySource } from '../services/campaignConfigService.js';
 import {
   getSyncState,
@@ -10,6 +12,14 @@ import {
 } from '../services/sidialStoreService.js';
 
 const router = Router();
+
+// GET /api/sidial/token-status
+router.get('/token-status', async (req, res, next) => {
+  try {
+    const status = await getSidialStatus();
+    res.json(status);
+  } catch (e) { next(e); }
+});
 
 // GET /api/sidial/leads?dateFrom=2024-01-01 00:00:00&dateTo=2024-01-31 23:59:59&type=google
 // type: "google" | "meta"

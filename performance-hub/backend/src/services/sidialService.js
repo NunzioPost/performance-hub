@@ -586,3 +586,12 @@ export async function warmSidialCache({ logger = console } = {}) {
 
   return summary;
 }
+
+export async function getSidialStatus() {
+  try {
+    const { baseUrl } = getSidialConfig();
+    return { valid: true, configured: true, baseUrl };
+  } catch (err) {
+    return { valid: false, configured: false, reason: err.message };
+  }
+}

@@ -61,21 +61,21 @@ function safeRatio(numerator, denominator) {
 
 function SourceSummaryCard({ source, spend, leads, cpl, checkedAt, connected = true }) {
   return (
-    <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-xl p-3 md:p-4 shadow-sm relative overflow-hidden min-h-[132px] md:min-h-[170px] flex flex-col">
+    <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-xl p-2.5 md:p-4 shadow-sm relative overflow-hidden min-h-[120px] md:min-h-[156px] flex flex-col">
       <div className="flex items-start justify-between mb-2 md:mb-3">
         <div>
           <p className="text-xs text-slate-400 uppercase tracking-wide">{source}</p>
-          <p className="text-2xl md:text-3xl font-semibold mt-1 tabular-nums whitespace-nowrap">{formatCurrency(spend)}</p>
+          <p className="text-xl md:text-3xl font-semibold mt-1 tabular-nums whitespace-nowrap">{formatCurrency(spend)}</p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 md:gap-4">
         <div>
           <p className="text-xs text-slate-500 uppercase tracking-wide">Lead</p>
-          <p className="text-lg md:text-xl font-semibold mt-1 tabular-nums">{leads.toLocaleString('it-IT')}</p>
+          <p className="text-base md:text-xl font-semibold mt-1 tabular-nums">{leads.toLocaleString('it-IT')}</p>
         </div>
         <div>
           <p className="text-xs text-slate-500 uppercase tracking-wide">CPL</p>
-          <p className="text-lg md:text-xl font-semibold mt-1 tabular-nums whitespace-nowrap">{leads > 0 ? formatCurrency(cpl) : '—'}</p>
+          <p className="text-base md:text-xl font-semibold mt-1 tabular-nums whitespace-nowrap">{leads > 0 ? formatCurrency(cpl) : '—'}</p>
         </div>
       </div>
       <div className="mt-auto pt-2 md:pt-3 flex items-center justify-between gap-2">
@@ -93,11 +93,11 @@ function SourceSummaryCard({ source, spend, leads, cpl, checkedAt, connected = t
 
 function OrdersSummaryCard({ orders, checkedAt, connected = true }) {
   return (
-    <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-xl p-3 md:p-4 shadow-sm relative overflow-hidden min-h-[132px] md:min-h-[170px] flex flex-col">
+    <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-xl p-2.5 md:p-4 shadow-sm relative overflow-hidden min-h-[120px] md:min-h-[156px] flex flex-col">
       <div className="flex items-start justify-between mb-2 md:mb-3">
         <div>
           <p className="text-xs text-slate-400 uppercase tracking-wide">Ordini</p>
-          <p className="text-2xl md:text-3xl font-semibold mt-1 tabular-nums">{orders.toLocaleString('it-IT')}</p>
+          <p className="text-xl md:text-3xl font-semibold mt-1 tabular-nums">{orders.toLocaleString('it-IT')}</p>
         </div>
       </div>
       <div className="flex-1" />
@@ -451,7 +451,6 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               <KpiCard label="Tasso Conv." value={convRate + '%'} sub="lead → ordine" color="green" />
-              <KpiCard label="ROAS" value="—" sub="in arrivo" color="purple" />
             </div>
 
             <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 mb-4">

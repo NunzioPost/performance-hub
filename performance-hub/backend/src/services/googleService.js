@@ -278,3 +278,22 @@ export async function getInsights(dateFrom, dateTo, options = {}) {
 export async function warmGoogleInsights({ dateFrom, dateTo }) {
   return getInsights(dateFrom, dateTo);
 }
+
+export async function getTokenStatus() {
+  const customerId = String(process.env.GOOGLE_CUSTOMER_ID || '').replaceAll('-', '').trim();
+  const developerToken = String(process.env.GOOGLE_DEVELOPER_TOKEN || '').trim();
+  const refreshToken = String(process.env.GOOGLE_REFRESH_TOKEN || '').trim();
+  const clientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+  const clientSecret = String(process.env.GOOGLE_CLIENT_SECRET || '').trim();
+
+  if (!customerId || !developerToken || !refreshToken || !clientId || !clientSecret) {
+    return { valid: false, reason: 'Credenziali Google non configurate' };
+  }
+
+  try {
+    await getAccessToken();
+    return { valid: true, customerId };
+  } catch (err) {
+    return { valid: false, reason: err.message || 'Token Google non valido o scaduto' };
+  }
+}

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, FileText, Settings, BriefcaseBusiness, Database
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '../../lib/api';
 
 const NAV = [
@@ -22,28 +22,50 @@ function StatusDot({ ok }) {
 
 export default function Sidebar() {
   const [apiStatus, setApiStatus] = useState({ sidial: false, meta: false, google: false });
+  const failCountRef = useRef({ sidial: 0, meta: 0, google: 0 });
 
   useEffect(() => {
     let active = true;
+    const markOk = (key) => {
+      failCountRef.current[key] = 0;
+      if (active) setApiStatus((s) => ({ ...s, [key]: true }));
+    };
+    const markFail = (key) => {
+      failCountRef.current[key] = Number(failCountRef.current[key] || 0) + 1;
+      // Evita falsi rossi per micro-timeout/transienti.
+      if (failCountRef.current[key] >= 3 && active) {
+        setApiStatus((s) => ({ ...s, [key]: false }));
+      }
+    };
 
     async function refreshStatus() {
       try {
-        await api.get('/health');
-        if (active) setApiStatus((s) => ({ ...s, sidial: true }));
+        const sidial = await api.get('/sidial/token-status');
+        if (sidial.data?.valid) markOk('sidial');
+        else markFail('sidial');
       } catch {
-        if (active) setApiStatus((s) => ({ ...s, sidial: false }));
+        markFail('sidial');
       }
 
       try {
         const r = await api.get('/meta/token-status');
-        if (active) setApiStatus((s) => ({ ...s, meta: !!r.data.valid }));
+        if (r.data?.valid) markOk('meta');
+        else markFail('meta');
       } catch {
-        if (active) setApiStatus((s) => ({ ...s, meta: false }));
+        markFail('meta');
+      }
+
+      try {
+        const r = await api.get('/google/token-status');
+        if (r.data?.valid) markOk('google');
+        else markFail('google');
+      } catch {
+        markFail('google');
       }
     }
 
     refreshStatus();
-    const interval = setInterval(refreshStatus, 30000);
+    const interval = setInterval(refreshStatus, 45000);
     window.addEventListener('focus', refreshStatus);
 
     return () => {
