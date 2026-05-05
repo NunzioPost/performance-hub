@@ -53,12 +53,16 @@ function needsOrderDetails(order) {
 }
 
 function normalizeText(value) {
-  return String(value || '').toLowerCase().trim();
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function getAllowedOrderServices() {
   const raw = String(process.env.SIDIAL_ALLOWED_ORDER_SERVICES || '').trim();
   if (!raw) return ['vodafone outbound', 'wind proprie'];
+  if (raw === '*' || raw.toLowerCase() === 'all') return [];
   return raw
     .split(',')
     .map((s) => normalizeText(s))
@@ -67,9 +71,20 @@ function getAllowedOrderServices() {
 
 function isOrderInAllowedServices(order, allowedServices) {
   if (!Array.isArray(allowedServices) || allowedServices.length === 0) return true;
-  return ORDER_SERVICE_CANDIDATE_FIELDS.some((field) => {
-    const val = normalizeText(order?.[field]);
-    return !!val && allowedServices.includes(val);
+  const mode = String(process.env.SIDIAL_ORDER_SERVICE_FILTER_MODE || 'contains').toLowerCase().trim();
+  const values = ORDER_SERVICE_CANDIDATE_FIELDS
+    .map((field) => normalizeText(order?.[field]))
+    .filter(Boolean);
+
+  if (values.length === 0) return true;
+
+  if (mode === 'strict') {
+    return values.some((val) => allowedServices.includes(val));
+  }
+
+  // default: contains (piu tollerante su varianti SIDIAL)
+  return values.some((val) => {
+    return allowedServices.some((allowed) => val.includes(allowed) || allowed.includes(val));
   });
 }
 
