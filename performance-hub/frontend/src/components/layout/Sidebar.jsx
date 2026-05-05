@@ -1,0 +1,97 @@
+import { NavLink } from 'react-router-dom';
+import {
+  LayoutDashboard, Users, FileText, Settings, BriefcaseBusiness, Database
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import api from '../../lib/api';
+
+const NAV = [
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/leads', icon: Users, label: 'Lead' },
+  { to: '/orders', icon: FileText, label: 'Ordini' },
+  { to: '/sidial-history', icon: Database, label: 'Storico SIDIAL' },
+  { to: '/clients-campaigns', icon: BriefcaseBusiness, label: 'Clienti & Campagne' },
+  { to: '/settings', icon: Settings, label: 'Impostazioni' }
+];
+
+function StatusDot({ ok }) {
+  return (
+    <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-green-400' : 'bg-red-400'}`} />
+  );
+}
+
+export default function Sidebar() {
+  const [apiStatus, setApiStatus] = useState({ sidial: false, meta: false, google: false });
+
+  useEffect(() => {
+    let active = true;
+
+    async function refreshStatus() {
+      try {
+        await api.get('/health');
+        if (active) setApiStatus((s) => ({ ...s, sidial: true }));
+      } catch {
+        if (active) setApiStatus((s) => ({ ...s, sidial: false }));
+      }
+
+      try {
+        const r = await api.get('/meta/token-status');
+        if (active) setApiStatus((s) => ({ ...s, meta: !!r.data.valid }));
+      } catch {
+        if (active) setApiStatus((s) => ({ ...s, meta: false }));
+      }
+    }
+
+    refreshStatus();
+    const interval = setInterval(refreshStatus, 30000);
+    window.addEventListener('focus', refreshStatus);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', refreshStatus);
+    };
+  }, []);
+
+  return (
+    <aside className="w-56 min-h-screen bg-slate-950/80 backdrop-blur border-r border-slate-800 flex flex-col px-3 py-5 shrink-0">
+      <div className="text-slate-100 font-semibold text-sm px-3 mb-6 tracking-tight">
+        Performance <span className="text-emerald-400">Hub</span>
+      </div>
+
+      <nav className="flex flex-col gap-1 flex-1">
+        {NAV.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+                isActive
+                  ? 'bg-slate-800 text-slate-100 font-medium border border-slate-700'
+                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+              }`
+            }
+          >
+            <Icon size={15} />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="border-t border-slate-800 pt-4 px-3 flex flex-col gap-2">
+        <p className="text-xs text-slate-500 mb-1 uppercase tracking-wide">Stato API</p>
+        {[
+          ['Sidial', apiStatus.sidial],
+          ['Meta Ads', apiStatus.meta],
+          ['Google Ads', apiStatus.google]
+        ].map(([name, ok]) => (
+          <div key={name} className="flex items-center justify-between">
+            <span className="text-xs text-slate-400">{name}</span>
+            <StatusDot ok={ok} />
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
