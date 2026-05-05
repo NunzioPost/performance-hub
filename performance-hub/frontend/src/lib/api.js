@@ -5,7 +5,7 @@ const baseURL = envBase || '/api';
 
 const api = axios.create({
   baseURL,
-  timeout: 30000
+  timeout: 60000
 });
 
 api.interceptors.response.use(

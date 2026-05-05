@@ -15,7 +15,11 @@ const orderAttributionCache = new Map();
 const ON_DEMAND_ENRICH_MAX = Number(process.env.ORDERS_ON_DEMAND_ENRICH_MAX || 40);
 const ON_DEMAND_ENRICH_CONCURRENCY = Number(process.env.ORDERS_ON_DEMAND_ENRICH_CONCURRENCY || 6);
 const ORDERS_HISTORICAL_ENRICH_MAX = Number(process.env.ORDERS_HISTORICAL_ENRICH_MAX || 500);
-const ORDERS_FORCE_SYNC_ENRICH_MAX = Number(process.env.ORDERS_FORCE_SYNC_ENRICH_MAX || 1500);
+const ORDERS_FORCE_SYNC_ENRICH_MAX = Number(process.env.ORDERS_FORCE_SYNC_ENRICH_MAX || 200);
+const ORDERS_INLINE_ENRICH_BUDGET_MS = Number(process.env.ORDERS_INLINE_ENRICH_BUDGET_MS || 12000);
+const ORDERS_FORCE_SYNC_INLINE_BUDGET_MS = Number(
+  process.env.ORDERS_FORCE_SYNC_INLINE_BUDGET_MS || ORDERS_INLINE_ENRICH_BUDGET_MS
+);
 const SIDIAL_SYNC_INTERVAL_MINUTES = Number(process.env.SIDIAL_SYNC_INTERVAL_MINUTES || 18);
 const SIDIAL_HTTP_TIMEOUT_MS = Number(process.env.SIDIAL_HTTP_TIMEOUT_MS || 15000);
 const SIDIAL_DETAILS_HTTP_TIMEOUT_MS = Number(process.env.SIDIAL_DETAILS_HTTP_TIMEOUT_MS || 12000);
@@ -38,6 +42,37 @@ async function runInBatches(items, batchSize, worker) {
     const chunk = items.slice(i, i + size);
     await Promise.allSettled(chunk.map(worker));
   }
+}
+
+async function enrichOrderDetailsWithBudget(orders, {
+  maxOrders = 0,
+  concurrency = ON_DEMAND_ENRICH_CONCURRENCY,
+  budgetMs = ORDERS_INLINE_ENRICH_BUDGET_MS
+} = {}) {
+  const queue = orders
+    .filter((o) => o?.id)
+    .slice(0, Math.max(0, Number(maxOrders) || 0));
+
+  if (queue.length === 0) return { processed: 0, exhausted: false };
+
+  const startedAt = Date.now();
+  const size = Math.max(1, Number(concurrency) || 1);
+  let processed = 0;
+  let exhausted = false;
+
+  for (let i = 0; i < queue.length; i += size) {
+    if (Date.now() - startedAt >= Math.max(0, Number(budgetMs) || 0)) {
+      exhausted = true;
+      break;
+    }
+    const chunk = queue.slice(i, i + size);
+    await Promise.allSettled(chunk.map(async (order) => {
+      await getOrderDetails(String(order.id));
+    }));
+    processed += chunk.length;
+  }
+
+  return { processed, exhausted };
 }
 
 function hasOrderAttribution(order) {
@@ -329,8 +364,10 @@ export async function getOrders(dateFrom, dateTo, options = {}) {
           .slice(0, Math.max(1, ORDERS_HISTORICAL_ENRICH_MAX));
 
         if (pending.length > 0) {
-          await runInBatches(pending, ON_DEMAND_ENRICH_CONCURRENCY, async (order) => {
-            await getOrderDetails(String(order.id));
+          await enrichOrderDetailsWithBudget(pending, {
+            maxOrders: pending.length,
+            concurrency: ON_DEMAND_ENRICH_CONCURRENCY,
+            budgetMs: ORDERS_INLINE_ENRICH_BUDGET_MS
           });
           const refreshedAll = await getOrdersByRange({ dateFrom, dateTo, includeUnattributed: true });
           const refreshed = refreshedAll.filter(hasOrderAttribution);
@@ -396,8 +433,10 @@ export async function getOrders(dateFrom, dateTo, options = {}) {
         .slice(0, hydrateLimit);
 
       if (toHydrate.length > 0) {
-        await runInBatches(toHydrate, ON_DEMAND_ENRICH_CONCURRENCY, async (order) => {
-          await getOrderDetails(String(order.id));
+        await enrichOrderDetailsWithBudget(toHydrate, {
+          maxOrders: toHydrate.length,
+          concurrency: ON_DEMAND_ENRICH_CONCURRENCY,
+          budgetMs: forceSync ? ORDERS_FORCE_SYNC_INLINE_BUDGET_MS : ORDERS_INLINE_ENRICH_BUDGET_MS
         });
         enriched = await enrichOrdersWithAttribution(filtered);
       }
