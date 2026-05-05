@@ -69,6 +69,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.get('/api', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Performance Hub API',
+    endpoints: ['/api/health', '/api/sidial/*', '/api/meta/*', '/api/google/*']
+  });
+});
+
 // OAuth Google - route temporanea per ottenere il refresh token
 // Usala una volta sola durante il setup, poi puoi ignorarla
 app.get('/oauth/google/start', (req, res) => {
