@@ -251,8 +251,8 @@ function startMarketingWarmupJob() {
   setInterval(() => { run('interval'); }, intervalMs);
 }
 
-app.listen(PORT, () => {
-  console.log(`Performance Hub backend in ascolto su http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Performance Hub backend in ascolto su http://0.0.0.0:${PORT}`);
   startAutoEnrichJob();
   startSidialWarmupJob();
   startMarketingWarmupJob();
