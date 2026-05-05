@@ -61,28 +61,28 @@ function safeRatio(numerator, denominator) {
 
 function SourceSummaryCard({ source, spend, leads, cpl, checkedAt, connected = true }) {
   return (
-    <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden min-h-[170px] flex flex-col">
-      <div className="flex items-start justify-between mb-3">
+    <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-xl p-3 md:p-4 shadow-sm relative overflow-hidden min-h-[132px] md:min-h-[170px] flex flex-col">
+      <div className="flex items-start justify-between mb-2 md:mb-3">
         <div>
           <p className="text-xs text-slate-400 uppercase tracking-wide">{source}</p>
-          <p className="text-3xl font-semibold mt-1 tabular-nums whitespace-nowrap">{formatCurrency(spend)}</p>
+          <p className="text-2xl md:text-3xl font-semibold mt-1 tabular-nums whitespace-nowrap">{formatCurrency(spend)}</p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3 md:gap-4">
         <div>
           <p className="text-xs text-slate-500 uppercase tracking-wide">Lead</p>
-          <p className="text-xl font-semibold mt-1 tabular-nums">{leads.toLocaleString('it-IT')}</p>
+          <p className="text-lg md:text-xl font-semibold mt-1 tabular-nums">{leads.toLocaleString('it-IT')}</p>
         </div>
         <div>
           <p className="text-xs text-slate-500 uppercase tracking-wide">CPL</p>
-          <p className="text-xl font-semibold mt-1 tabular-nums whitespace-nowrap">{leads > 0 ? formatCurrency(cpl) : '—'}</p>
+          <p className="text-lg md:text-xl font-semibold mt-1 tabular-nums whitespace-nowrap">{leads > 0 ? formatCurrency(cpl) : '—'}</p>
         </div>
       </div>
-      <div className="mt-auto pt-3 flex items-center justify-between">
+      <div className="mt-auto pt-2 md:pt-3 flex items-center justify-between gap-2">
         <span className={`text-xs font-medium ${connected ? 'text-emerald-300' : 'text-red-300'}`}>
           {connected ? 'Connesso' : 'Non connesso'}
         </span>
-        <span className="text-xs text-slate-400 text-right">
+        <span className="text-[11px] md:text-xs text-slate-400 text-right">
           Aggiornato alle {checkedAt ? format(checkedAt, 'HH:mm:ss') : '—'}
         </span>
       </div>
@@ -93,19 +93,19 @@ function SourceSummaryCard({ source, spend, leads, cpl, checkedAt, connected = t
 
 function OrdersSummaryCard({ orders, checkedAt, connected = true }) {
   return (
-    <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden min-h-[170px] flex flex-col">
-      <div className="flex items-start justify-between mb-3">
+    <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-xl p-3 md:p-4 shadow-sm relative overflow-hidden min-h-[132px] md:min-h-[170px] flex flex-col">
+      <div className="flex items-start justify-between mb-2 md:mb-3">
         <div>
           <p className="text-xs text-slate-400 uppercase tracking-wide">Ordini</p>
-          <p className="text-3xl font-semibold mt-1 tabular-nums">{orders.toLocaleString('it-IT')}</p>
+          <p className="text-2xl md:text-3xl font-semibold mt-1 tabular-nums">{orders.toLocaleString('it-IT')}</p>
         </div>
       </div>
       <div className="flex-1" />
-      <div className="mt-auto pt-3 flex items-center justify-between">
+      <div className="mt-auto pt-2 md:pt-3 flex items-center justify-between gap-2">
         <span className={`text-xs font-medium ${connected ? 'text-emerald-300' : 'text-red-300'}`}>
           {connected ? 'Sync ok' : 'Sync ko'}
         </span>
-        <span className="text-xs text-slate-400 text-right">
+        <span className="text-[11px] md:text-xs text-slate-400 text-right">
           Aggiornato alle {checkedAt ? format(checkedAt, 'HH:mm:ss') : '—'}
         </span>
       </div>
@@ -179,8 +179,6 @@ export default function Dashboard() {
   const avgCpl = totalLeads > 0 ? (totalSpend / totalLeads).toFixed(2) : '—';
   const totalOrders = orders.length;
   const convRate = totalLeads > 0 ? ((totalOrders / totalLeads) * 100).toFixed(1) : '0.0';
-  const revenue = totalOrders * 50;
-  const roas = totalSpend > 0 ? (revenue / totalSpend).toFixed(2) : '—';
 
   const googleCplValue = googleLeads.length > 0 ? (googleSpend / googleLeads.length) : 0;
   const metaCplValue = metaLeads.length > 0 ? (metaSpend / metaLeads.length) : 0;
@@ -451,10 +449,9 @@ export default function Dashboard() {
               <KpiCard label="Ordini" value={totalOrders.toLocaleString('it-IT')} color="green" />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               <KpiCard label="Tasso Conv." value={convRate + '%'} sub="lead → ordine" color="green" />
-              <KpiCard label="Revenue Stim." value={'€ ' + revenue.toLocaleString('it-IT')} sub="€50/ordine placeholder" color="blue" />
-              <KpiCard label="ROAS" value={roas} sub="revenue / spesa" color="purple" />
+              <KpiCard label="ROAS" value="—" sub="in arrivo" color="purple" />
             </div>
 
             <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 mb-4">
