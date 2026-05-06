@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import mediacomLogo from '../assets/mediacom-logo-verde.svg';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -34,7 +35,12 @@ export default function Login() {
         className="relative w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-6 md:p-7 shadow-xl"
       >
         <div className="mb-6">
-          <p className="text-slate-400 text-xs uppercase tracking-wide">Performance Hub</p>
+          <img
+            src={mediacomLogo}
+            alt="Mediacom"
+            className="h-8 w-auto mb-3"
+            loading="eager"
+          />
           <h1 className="text-slate-100 text-2xl font-semibold mt-1">Accesso piattaforma</h1>
           <p className="text-slate-400 text-sm mt-1">Inserisci le tue credenziali per continuare.</p>
         </div>

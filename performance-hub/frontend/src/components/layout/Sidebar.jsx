@@ -5,6 +5,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import mediacomLogo from '../../assets/mediacom-logo-verde.svg';
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -83,8 +84,13 @@ export default function Sidebar() {
 
   return (
     <aside className="w-full md:w-56 md:min-h-screen bg-slate-950/80 backdrop-blur border-b md:border-b-0 md:border-r border-slate-800 flex flex-col px-3 py-3 md:py-5 shrink-0">
-      <div className="text-slate-100 font-semibold text-sm px-3 mb-3 md:mb-6 tracking-tight">
-        Performance <span className="text-emerald-400">Hub</span>
+      <div className="px-3 mb-3 md:mb-6">
+        <img
+          src={mediacomLogo}
+          alt="Mediacom"
+          className="h-7 md:h-8 w-auto"
+          loading="eager"
+        />
       </div>
 
       <nav className="flex flex-row md:flex-col gap-1 flex-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0">
