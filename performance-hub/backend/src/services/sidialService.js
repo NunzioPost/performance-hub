@@ -227,6 +227,45 @@ export function buildOrdersCacheKey(dateFrom, dateTo, includeUnattributed = fals
   return `orders:${dateFrom}:${dateTo}:includeUnattributed=${includeUnattributed ? '1' : '0'}`;
 }
 
+async function upsertOrdersSyncStateOkForBothVariants(dateFrom, dateTo, baseMeta = {}) {
+  if (!sidialStoreEnabled()) return;
+
+  const [rowsInclude, rowsAttributed] = await Promise.all([
+    getOrdersByRange({ dateFrom, dateTo, includeUnattributed: true }),
+    getOrdersByRange({ dateFrom, dateTo, includeUnattributed: false })
+  ]);
+
+  const metaInclude = {
+    ...baseMeta,
+    includeUnattributed: true,
+    phase: 'complete',
+    rangeFrom: dateFrom,
+    rangeTo: dateTo,
+    resumeFrom: null
+  };
+  const metaAttributed = {
+    ...baseMeta,
+    includeUnattributed: false,
+    phase: 'complete',
+    rangeFrom: dateFrom,
+    rangeTo: dateTo,
+    resumeFrom: null
+  };
+
+  await Promise.all([
+    upsertSyncState(buildOrdersCacheKey(dateFrom, dateTo, true), {
+      status: 'ok',
+      rowsCount: rowsInclude.length,
+      meta: metaInclude
+    }),
+    upsertSyncState(buildOrdersCacheKey(dateFrom, dateTo, false), {
+      status: 'ok',
+      rowsCount: rowsAttributed.length,
+      meta: metaAttributed
+    })
+  ]);
+}
+
 function buildOrdersSyncJobKey(dateFrom, dateTo, includeUnattributed = false) {
   return `${dateFrom}|${dateTo}|${includeUnattributed ? '1' : '0'}`;
 }
@@ -643,21 +682,10 @@ async function syncOrdersRangeWithCheckpoint(dateFrom, dateTo, options = {}) {
   }
 
   if (cursor > hardEnd) {
+    await upsertOrdersSyncStateOkForBothVariants(dateFrom, dateTo, { chunksDone });
     const full = sidialStoreEnabled()
       ? await getOrdersByRange({ dateFrom, dateTo, includeUnattributed })
       : [];
-    await upsertSyncState(cacheKey, {
-      status: 'ok',
-      rowsCount: full.length,
-      meta: {
-        includeUnattributed,
-        phase: 'complete',
-        rangeFrom: dateFrom,
-        rangeTo: dateTo,
-        resumeFrom: null,
-        chunksDone
-      }
-    });
     return { done: true, rowsCount: full.length, chunksDone };
   }
 
@@ -710,11 +738,7 @@ export async function getOrders(dateFrom, dateTo, options = {}) {
   try {
     const data = await fetchOrdersLiveRange(dateFrom, dateTo, { includeUnattributed, forceSync });
     if (sidialStoreEnabled()) {
-      await upsertSyncState(cacheKey, {
-        status: 'ok',
-        rowsCount: data.length,
-        meta: { dateFrom, dateTo, includeUnattributed, phase: 'complete', resumeFrom: null }
-      });
+      await upsertOrdersSyncStateOkForBothVariants(dateFrom, dateTo, { dateFrom, dateTo });
     }
     return data;
   } catch (err) {

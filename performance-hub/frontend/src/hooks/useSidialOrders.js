@@ -33,6 +33,7 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
   const ordersRef = useRef(orders);
   const syncStatusRef = useRef(syncStatus);
   const syncMetaRef = useRef(syncMeta);
+  const lastSyncAtRef = useRef(lastSyncAt);
 
   useEffect(() => {
     ordersRef.current = orders;
@@ -45,6 +46,10 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
   useEffect(() => {
     syncMetaRef.current = syncMeta;
   }, [syncMeta]);
+
+  useEffect(() => {
+    lastSyncAtRef.current = lastSyncAt;
+  }, [lastSyncAt]);
 
   const fetch = useCallback(async (options = {}) => {
     const { force = false, forceSync = false } = options;
@@ -64,20 +69,22 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
       }
     }
 
-    if (!force) {
-      const existing = readCache(cacheKey);
-      if (existing?.data) {
-        setOrders(existing.data);
-        setFetchedAt(existing.fetchedAt ? new Date(existing.fetchedAt) : null);
-        setLastSyncAt(existing.lastSyncAt ? new Date(existing.lastSyncAt) : null);
+    const existing = !force ? readCache(cacheKey) : null;
+    const hasLocalData = Array.isArray(existing?.data) && existing.data.length > 0;
+    if (existing?.data) {
+      setOrders(existing.data);
+      setFetchedAt(existing.fetchedAt ? new Date(existing.fetchedAt) : null);
+      setLastSyncAt(existing.lastSyncAt ? new Date(existing.lastSyncAt) : null);
+      if (!forceSync) {
         setSyncStatus(existing.syncStatus || null);
         setSyncMeta(existing.syncMeta || null);
-        setError(null);
-        return;
       }
+      setError(null);
     }
 
-    setLoading(true);
+    if (!hasLocalData || forceSync || force) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await api.get('/sidial/orders', {
@@ -92,7 +99,7 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
       const data = res.data.data || [];
       const now = new Date();
       const syncAt = res.data.lastSyncAt ? new Date(res.data.lastSyncAt) : null;
-      const status = res.data.syncStatus || null;
+      const status = res.data.syncStatus || (forceSync ? 'syncing' : (syncStatusRef.current === 'syncing' ? 'syncing' : null));
       const meta = res.data.syncMeta || null;
 
       const shouldKeepCurrentData = forceSync
@@ -130,7 +137,9 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
         setError(e.message);
       }
     } finally {
-      setLoading(false);
+      if (!hasLocalData || forceSync || force) {
+        setLoading(false);
+      }
     }
   }, [dateFrom, dateTo, cacheKey, includeUnattributed]);
 
@@ -153,8 +162,15 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
         const status = res.data?.syncStatus || null;
         const syncAt = res.data?.lastSyncAt ? new Date(res.data.lastSyncAt) : null;
         const meta = res.data?.syncMeta || null;
+        const wasSyncing = syncStatusRef.current === 'syncing';
+        const prevSyncTs = lastSyncAtRef.current ? lastSyncAtRef.current.getTime() : 0;
+        const nextSyncTs = syncAt ? syncAt.getTime() : 0;
+        const progressed = nextSyncTs > prevSyncTs;
+        const shouldPromoteToDone = wasSyncing && !status && progressed;
+        const shouldKeepSyncing = wasSyncing && !status && !progressed;
+        const nextStatus = shouldPromoteToDone ? 'ok' : (shouldKeepSyncing ? 'syncing' : status);
 
-        setSyncStatus(status);
+        setSyncStatus(nextStatus);
         setLastSyncAt(syncAt);
         setSyncMeta(meta);
 
@@ -164,11 +180,11 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
           data: Array.isArray(existing.data) ? existing.data : ordersRef.current,
           fetchedAt: existing.fetchedAt || new Date().toISOString(),
           lastSyncAt: syncAt ? syncAt.toISOString() : null,
-          syncStatus: status,
+          syncStatus: nextStatus,
           syncMeta: meta
         });
 
-        if (status && status !== 'syncing') {
+        if (nextStatus && nextStatus !== 'syncing') {
           fetch({ force: true, forceSync: false });
         }
       } catch {
@@ -178,6 +194,15 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
 
     return () => clearInterval(timer);
   }, [syncStatus, dateFrom, dateTo, includeUnattributed, cacheKey, fetch]);
+
+  useEffect(() => {
+    if (!dateFrom || !dateTo) return;
+    const timer = setInterval(() => {
+      if (syncStatusRef.current === 'syncing') return;
+      fetch({ force: true, forceSync: false });
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [dateFrom, dateTo, fetch]);
 
   const refetch = useCallback((options = {}) => fetch({ force: true, ...options }), [fetch]);
   return {

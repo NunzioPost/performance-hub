@@ -13,6 +13,25 @@ import {
 
 const router = Router();
 
+function pickMostRecentDate(a, b) {
+  const da = a ? new Date(a).getTime() : Number.NaN;
+  const db = b ? new Date(b).getTime() : Number.NaN;
+  if (Number.isNaN(da)) return b || null;
+  if (Number.isNaN(db)) return a || null;
+  return da >= db ? a : b;
+}
+
+function rangeIncludesToday(dateFrom, dateTo) {
+  const from = String(dateFrom || '').slice(0, 10);
+  const to = String(dateTo || '').slice(0, 10);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const today = `${y}-${m}-${d}`;
+  return from <= today && to >= today;
+}
+
 // GET /api/sidial/token-status
 router.get('/token-status', async (req, res, next) => {
   try {
@@ -74,11 +93,32 @@ router.get('/orders', async (req, res, next) => {
     let lastSyncAt = null;
     let syncStatus = null;
     let syncMeta = null;
+    let globalLastSyncAt = null;
     if (sidialStoreEnabled()) {
       const sync = await getSyncState(buildOrdersCacheKey(dateFrom, dateTo, includeUnattr));
-      lastSyncAt = sync?.last_sync_at || null;
+      const scopedLastSyncAt = sync?.last_sync_at || null;
+      globalLastSyncAt = await getLastSyncByPrefix('orders:');
+      lastSyncAt = pickMostRecentDate(scopedLastSyncAt, globalLastSyncAt);
       syncStatus = sync?.status || null;
       syncMeta = sync?.meta || null;
+
+      const shouldAutoSyncCurrentRange = !manualSync
+        && rangeIncludesToday(dateFrom, dateTo)
+        && (!lastSyncAt || (Date.now() - new Date(lastSyncAt).getTime()) > (18 * 60 * 1000));
+
+      if (shouldAutoSyncCurrentRange) {
+        const state = scheduleOrdersSync(dateFrom, dateTo, { includeUnattributed: includeUnattr });
+        syncQueued = syncQueued || state.queued;
+        syncRunning = syncRunning || state.running;
+        syncStatus = 'syncing';
+        syncMeta = {
+          ...(syncMeta || {}),
+          phase: 'orders_live_sync',
+          rangeFrom: dateFrom,
+          rangeTo: dateTo,
+          autoScheduled: true
+        };
+      }
     }
 
     if (manualSync && !syncStatus) {
@@ -99,6 +139,7 @@ router.get('/orders', async (req, res, next) => {
       syncMeta,
       syncQueued,
       syncRunning,
+      globalLastSyncAt,
       data: orders
     });
   } catch (e) { next(e); }
@@ -141,12 +182,15 @@ router.get('/orders/sync-status', async (req, res, next) => {
     const sync = sidialStoreEnabled()
       ? await getSyncState(buildOrdersCacheKey(dateFrom, dateTo, includeUnattr))
       : null;
+    const scopedLastSyncAt = sync?.last_sync_at || null;
+    const globalLastSyncAt = sidialStoreEnabled() ? await getLastSyncByPrefix('orders:') : null;
 
     res.json({
       success: true,
       syncStatus: sync?.status || null,
-      lastSyncAt: sync?.last_sync_at || null,
-      syncMeta: sync?.meta || null
+      lastSyncAt: pickMostRecentDate(scopedLastSyncAt, globalLastSyncAt),
+      syncMeta: sync?.meta || null,
+      globalLastSyncAt
     });
   } catch (e) { next(e); }
 });
