@@ -61,8 +61,8 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/leads" element={<Leads />} />
             <Route path="/orders" element={<Orders />} />
-            <Route path="/sidial-history" element={<SidialHistory />} />
             <Route element={<AuthGate adminOnly />}>
+              <Route path="/sidial-history" element={<SidialHistory />} />
               <Route path="/clients-campaigns" element={<ClientCampaigns />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

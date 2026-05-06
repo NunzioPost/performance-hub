@@ -27,7 +27,7 @@ export default function Sidebar() {
   const [apiStatus, setApiStatus] = useState({ sidial: false, meta: false, google: false });
   const failCountRef = useRef({ sidial: 0, meta: 0, google: 0 });
   const navItems = NAV.filter((item) => {
-    if (!isAdmin && (item.to === '/settings' || item.to === '/clients-campaigns')) return false;
+    if (!isAdmin && (item.to === '/settings' || item.to === '/clients-campaigns' || item.to === '/sidial-history')) return false;
     return true;
   });
 
