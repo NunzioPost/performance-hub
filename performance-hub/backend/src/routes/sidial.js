@@ -94,6 +94,53 @@ router.get('/orders', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// POST /api/sidial/orders/sync
+// Body: { dateFrom: "...", dateTo: "...", includeUnattributed?: 0|1|boolean }
+router.post('/orders/sync', async (req, res, next) => {
+  try {
+    const { dateFrom, dateTo, includeUnattributed } = req.body || {};
+    if (!dateFrom || !dateTo) {
+      return res.status(400).json({ error: true, message: 'dateFrom e dateTo sono obbligatori' });
+    }
+
+    const includeUnattr = String(includeUnattributed || '') === '1' || includeUnattributed === true;
+    const state = scheduleOrdersSync(dateFrom, dateTo, { includeUnattributed: includeUnattr });
+    const sync = sidialStoreEnabled()
+      ? await getSyncState(buildOrdersCacheKey(dateFrom, dateTo, includeUnattr))
+      : null;
+
+    res.json({
+      success: true,
+      queued: state.queued,
+      running: state.running,
+      syncStatus: sync?.status || null,
+      lastSyncAt: sync?.last_sync_at || null,
+      syncMeta: sync?.meta || null
+    });
+  } catch (e) { next(e); }
+});
+
+// GET /api/sidial/orders/sync-status?dateFrom=...&dateTo=...&includeUnattributed=1
+router.get('/orders/sync-status', async (req, res, next) => {
+  try {
+    const { dateFrom, dateTo, includeUnattributed } = req.query;
+    if (!dateFrom || !dateTo) {
+      return res.status(400).json({ error: true, message: 'dateFrom e dateTo sono obbligatori' });
+    }
+    const includeUnattr = String(includeUnattributed || '') === '1';
+    const sync = sidialStoreEnabled()
+      ? await getSyncState(buildOrdersCacheKey(dateFrom, dateTo, includeUnattr))
+      : null;
+
+    res.json({
+      success: true,
+      syncStatus: sync?.status || null,
+      lastSyncAt: sync?.last_sync_at || null,
+      syncMeta: sync?.meta || null
+    });
+  } catch (e) { next(e); }
+});
+
 // POST /api/sidial/orders/enrich
 // Body: { orderId: "12345" }
 router.post('/orders/enrich', async (req, res, next) => {

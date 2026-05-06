@@ -51,10 +51,21 @@ export default function Orders() {
   useEffect(() => {
     if (syncStatus !== 'syncing') return;
     const timer = setInterval(() => {
-      refetch({ forceSync: false });
+      api.get('/sidial/orders/sync-status', {
+        params: {
+          dateFrom: dateRange.from,
+          dateTo: dateRange.to,
+          includeUnattributed: 1
+        }
+      }).then((res) => {
+        const status = res.data?.syncStatus || null;
+        if (status && status !== 'syncing') {
+          refetch({ forceSync: false });
+        }
+      }).catch(() => {});
     }, 8000);
     return () => clearInterval(timer);
-  }, [syncStatus, refetch]);
+  }, [syncStatus, refetch, dateRange.from, dateRange.to]);
 
   function handleRefresh() {
     // Refresh manuale: forza sync live su SIDIAL anche su range storico.

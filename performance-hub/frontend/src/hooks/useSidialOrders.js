@@ -34,6 +34,18 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
     const { force = false, forceSync = false } = options;
     if (!dateFrom || !dateTo) return;
 
+    if (forceSync) {
+      try {
+        await api.post('/sidial/orders/sync', {
+          dateFrom,
+          dateTo,
+          includeUnattributed: includeUnattributed ? 1 : 0
+        });
+      } catch {
+        // Non bloccare la UX: anche se trigger fallisce, proviamo comunque a leggere cache.
+      }
+    }
+
     if (!force) {
       const existing = readCache(cacheKey);
       if (existing?.data) {
@@ -54,7 +66,7 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
         params: {
           dateFrom,
           dateTo,
-          forceSync: forceSync ? 1 : 0,
+          forceSync: 0,
           includeUnattributed: includeUnattributed ? 1 : 0
         },
         timeout: ORDERS_TIMEOUT_MS
