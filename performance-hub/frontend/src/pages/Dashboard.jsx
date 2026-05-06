@@ -132,27 +132,24 @@ export default function Dashboard() {
     from: toDateTime(startOfMonth(today), false),
     to: toDateTime(endOfMonth(today), true)
   };
-  const initialSelectedRange = readRangeState('ph:dashboard:range:v2', initialDateRange);
-  const [selectedRange, setSelectedRange] = useState(initialSelectedRange);
-  const [appliedRange, setAppliedRange] = useState(initialSelectedRange);
+  const [dateRange, setDateRange] = useState(readRangeState('ph:dashboard:range:v2', initialDateRange));
   const [lastUpdated, setLastUpdated] = useState(null);
   const prevLoadingRef = useRef(false);
-  const shouldRefreshAfterApplyRef = useRef(false);
   const [expandedClients, setExpandedClients] = useState({});
   const [expandedCampaigns, setExpandedCampaigns] = useState({});
 
   const { config } = useCampaignConfig();
 
   const { leads: googleLeads, loading: l1, error: e1, refetch: r1 } =
-    useSidialLeads(appliedRange.from, appliedRange.to, 'google');
+    useSidialLeads(dateRange.from, dateRange.to, 'google');
   const { leads: metaLeads, loading: l2, error: e2, refetch: r2 } =
-    useSidialLeads(appliedRange.from, appliedRange.to, 'meta');
+    useSidialLeads(dateRange.from, dateRange.to, 'meta');
   const { orders, loading: l3, error: e3, fetchedAt: ordersFetchedAt, refetch: r3 } =
-    useSidialOrders(appliedRange.from, appliedRange.to);
+    useSidialOrders(dateRange.from, dateRange.to);
   const { insights: metaInsights, loading: l4, error: e4, fetchedAt: metaFetchedAt, refetch: r4 } =
-    useMetaInsights(appliedRange.from, appliedRange.to);
+    useMetaInsights(dateRange.from, dateRange.to);
   const { insights: googleInsights, loading: l5, error: e5, fetchedAt: googleFetchedAt, refetch: r5 } =
-    useGoogleInsights(appliedRange.from, appliedRange.to);
+    useGoogleInsights(dateRange.from, dateRange.to);
 
   const loading = l1 || l2 || l3 || l4 || l5;
   const errors = [e1, e2, e3, e4, e5].filter(Boolean);
@@ -168,14 +165,8 @@ export default function Dashboard() {
   }, [r1, r2, r3, r4, r5]);
 
   const handleRefresh = useCallback(async () => {
-    const changed = selectedRange.from !== appliedRange.from || selectedRange.to !== appliedRange.to;
-    shouldRefreshAfterApplyRef.current = true;
-    if (changed) {
-      setAppliedRange(selectedRange);
-      return;
-    }
     await refreshAppliedRange();
-  }, [selectedRange, appliedRange, refreshAppliedRange]);
+  }, [refreshAppliedRange]);
 
   useEffect(() => {
     if (prevLoadingRef.current && !loading) {
@@ -185,14 +176,8 @@ export default function Dashboard() {
   }, [loading]);
 
   useEffect(() => {
-    writeRangeState('ph:dashboard:range:v2', selectedRange);
-  }, [selectedRange]);
-
-  useEffect(() => {
-    if (!shouldRefreshAfterApplyRef.current) return;
-    shouldRefreshAfterApplyRef.current = false;
-    refreshAppliedRange();
-  }, [appliedRange.from, appliedRange.to, refreshAppliedRange]);
+    writeRangeState('ph:dashboard:range:v2', dateRange);
+  }, [dateRange]);
 
   const totalLeads = googleLeads.length + metaLeads.length;
   const metaSpend = metaInsights?.spend || 0;
@@ -419,7 +404,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col h-full">
-      <TopBar title="Dashboard" onDateChange={setSelectedRange} onRefresh={handleRefresh} />
+      <TopBar title="Dashboard" onDateChange={setDateRange} onRefresh={handleRefresh} />
       <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
 
         {errors.length > 0 && (
