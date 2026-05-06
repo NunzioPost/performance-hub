@@ -19,7 +19,8 @@ function toDateTime(date, isEnd) {
 }
 
 function formatCurrency(value) {
-  return '€ ' + value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const n = Number(value || 0);
+  return '€ ' + n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatPercent(value) {
@@ -59,6 +60,17 @@ function safeRatio(numerator, denominator) {
   return numerator / denominator;
 }
 
+function formatCheckedAt(value) {
+  if (!value) return '—';
+  try {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return format(d, 'HH:mm:ss');
+  } catch {
+    return '—';
+  }
+}
+
 function SourceSummaryCard({ source, spend, leads, cpl, checkedAt, connected = true }) {
   return (
     <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-xl p-2.5 md:p-4 shadow-sm relative overflow-hidden min-h-[120px] md:min-h-[156px] flex flex-col">
@@ -83,7 +95,7 @@ function SourceSummaryCard({ source, spend, leads, cpl, checkedAt, connected = t
           {connected ? 'Connesso' : 'Non connesso'}
         </span>
         <span className="text-[11px] md:text-xs text-slate-400 text-right">
-          Aggiornato alle {checkedAt ? format(checkedAt, 'HH:mm:ss') : '—'}
+          Aggiornato alle {formatCheckedAt(checkedAt)}
         </span>
       </div>
       <div className={`absolute left-0 right-0 bottom-0 h-1 ${connected ? 'bg-emerald-500' : 'bg-red-500'}`} />
@@ -106,7 +118,7 @@ function OrdersSummaryCard({ orders, checkedAt, connected = true }) {
           {connected ? 'Sync ok' : 'Sync ko'}
         </span>
         <span className="text-[11px] md:text-xs text-slate-400 text-right">
-          Aggiornato alle {checkedAt ? format(checkedAt, 'HH:mm:ss') : '—'}
+          Aggiornato alle {formatCheckedAt(checkedAt)}
         </span>
       </div>
       <div className={`absolute left-0 right-0 bottom-0 h-1 ${connected ? 'bg-emerald-500' : 'bg-red-500'}`} />
@@ -120,24 +132,27 @@ export default function Dashboard() {
     from: toDateTime(startOfMonth(today), false),
     to: toDateTime(endOfMonth(today), true)
   };
-  const [dateRange, setDateRange] = useState(readRangeState('ph:dashboard:range:v2', initialDateRange));
+  const initialSelectedRange = readRangeState('ph:dashboard:range:v2', initialDateRange);
+  const [selectedRange, setSelectedRange] = useState(initialSelectedRange);
+  const [appliedRange, setAppliedRange] = useState(initialSelectedRange);
   const [lastUpdated, setLastUpdated] = useState(null);
   const prevLoadingRef = useRef(false);
+  const shouldRefreshAfterApplyRef = useRef(false);
   const [expandedClients, setExpandedClients] = useState({});
   const [expandedCampaigns, setExpandedCampaigns] = useState({});
 
   const { config } = useCampaignConfig();
 
   const { leads: googleLeads, loading: l1, error: e1, refetch: r1 } =
-    useSidialLeads(dateRange.from, dateRange.to, 'google');
+    useSidialLeads(appliedRange.from, appliedRange.to, 'google');
   const { leads: metaLeads, loading: l2, error: e2, refetch: r2 } =
-    useSidialLeads(dateRange.from, dateRange.to, 'meta');
+    useSidialLeads(appliedRange.from, appliedRange.to, 'meta');
   const { orders, loading: l3, error: e3, fetchedAt: ordersFetchedAt, refetch: r3 } =
-    useSidialOrders(dateRange.from, dateRange.to);
+    useSidialOrders(appliedRange.from, appliedRange.to);
   const { insights: metaInsights, loading: l4, error: e4, fetchedAt: metaFetchedAt, refetch: r4 } =
-    useMetaInsights(dateRange.from, dateRange.to);
+    useMetaInsights(appliedRange.from, appliedRange.to);
   const { insights: googleInsights, loading: l5, error: e5, fetchedAt: googleFetchedAt, refetch: r5 } =
-    useGoogleInsights(dateRange.from, dateRange.to);
+    useGoogleInsights(appliedRange.from, appliedRange.to);
 
   const loading = l1 || l2 || l3 || l4 || l5;
   const errors = [e1, e2, e3, e4, e5].filter(Boolean);
@@ -153,8 +168,14 @@ export default function Dashboard() {
   }, [r1, r2, r3, r4, r5]);
 
   const handleRefresh = useCallback(async () => {
+    const changed = selectedRange.from !== appliedRange.from || selectedRange.to !== appliedRange.to;
+    shouldRefreshAfterApplyRef.current = true;
+    if (changed) {
+      setAppliedRange(selectedRange);
+      return;
+    }
     await refreshAppliedRange();
-  }, [refreshAppliedRange]);
+  }, [selectedRange, appliedRange, refreshAppliedRange]);
 
   useEffect(() => {
     if (prevLoadingRef.current && !loading) {
@@ -164,8 +185,14 @@ export default function Dashboard() {
   }, [loading]);
 
   useEffect(() => {
-    writeRangeState('ph:dashboard:range:v2', dateRange);
-  }, [dateRange]);
+    writeRangeState('ph:dashboard:range:v2', selectedRange);
+  }, [selectedRange]);
+
+  useEffect(() => {
+    if (!shouldRefreshAfterApplyRef.current) return;
+    shouldRefreshAfterApplyRef.current = false;
+    refreshAppliedRange();
+  }, [appliedRange.from, appliedRange.to, refreshAppliedRange]);
 
   const totalLeads = googleLeads.length + metaLeads.length;
   const metaSpend = metaInsights?.spend || 0;
@@ -392,7 +419,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col h-full">
-      <TopBar title="Dashboard" onDateChange={setDateRange} onRefresh={handleRefresh} />
+      <TopBar title="Dashboard" onDateChange={setSelectedRange} onRefresh={handleRefresh} />
       <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
 
         {errors.length > 0 && (
@@ -403,18 +430,16 @@ export default function Dashboard() {
 
         {loading && (
           <DataLoadingState
-            title="Caricamento dashboard"
+            title="Aggiornamento dati in corso"
             messages={[
-              'Recupero lead e ordini dalla cache...',
-              'Verifico aggiornamenti disponibili...',
-              'Ricalcolo KPI e spaccato clienti...',
-              'Impagino i grafici...'
+              'Mantengo i dati correnti a schermo...',
+              'Sincronizzo lead, ordini e costi...',
+              'Applico i nuovi risultati appena pronti...'
             ]}
           />
         )}
 
-        {!loading && (
-          <>
+        <>
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 mb-5">
               <SourceSummaryCard
                 source="Meta"
@@ -530,7 +555,6 @@ export default function Dashboard() {
               </div>
             </div>
           </>
-        )}
       </div>
     </div>
   );

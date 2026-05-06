@@ -129,17 +129,16 @@ export default function Leads() {
         {errors.map((e, i) => <ErrorBanner key={i} message={e} onRetry={handleRefresh} />)}
         {loading && (
           <DataLoadingState
-            title="Caricamento lead"
+            title="Aggiornamento lead in corso"
             messages={[
-              'Recupero lead salvate...',
-              'Allineo stato campagne/liste...',
-              'Aggiorno tabella lead...'
+              'Mantengo le lead correnti a schermo...',
+              'Controllo nuove lead nel periodo...',
+              'Aggiorno i risultati appena pronti...'
             ]}
           />
         )}
 
-        {!loading && (
-          <>
+        <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               <KpiCard label="Lead Google" value={googleLeads.length} color="blue" />
               <KpiCard label="Lead Meta" value={metaLeads.length} color="red" />
@@ -224,7 +223,6 @@ export default function Leads() {
               </div>
             </div>
           </>
-        )}
       </div>
     </div>
   );

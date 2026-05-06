@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../lib/api';
 
 const ORDERS_TIMEOUT_MS = 90000;
@@ -29,6 +29,21 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
   const [lastSyncAt, setLastSyncAt] = useState(cached?.lastSyncAt ? new Date(cached.lastSyncAt) : null);
   const [syncStatus, setSyncStatus] = useState(cached?.syncStatus || null);
   const [syncMeta, setSyncMeta] = useState(cached?.syncMeta || null);
+  const ordersRef = useRef(orders);
+  const syncStatusRef = useRef(syncStatus);
+  const syncMetaRef = useRef(syncMeta);
+
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
+
+  useEffect(() => {
+    syncStatusRef.current = syncStatus;
+  }, [syncStatus]);
+
+  useEffect(() => {
+    syncMetaRef.current = syncMeta;
+  }, [syncMeta]);
 
   const fetch = useCallback(async (options = {}) => {
     const { force = false, forceSync = false } = options;
@@ -79,13 +94,22 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
       const status = res.data.syncStatus || null;
       const meta = res.data.syncMeta || null;
 
-      setOrders(data);
+      const shouldKeepCurrentData = forceSync
+        && status === 'syncing'
+        && Array.isArray(data)
+        && data.length === 0
+        && Array.isArray(ordersRef.current)
+        && ordersRef.current.length > 0;
+
+      if (!shouldKeepCurrentData) {
+        setOrders(data);
+      }
       setFetchedAt(now);
       setLastSyncAt(syncAt);
       setSyncStatus(status);
       setSyncMeta(meta);
       writeCache(cacheKey, {
-        data,
+        data: shouldKeepCurrentData ? ordersRef.current : data,
         fetchedAt: now.toISOString(),
         lastSyncAt: syncAt ? syncAt.toISOString() : null,
         syncStatus: status,
@@ -98,8 +122,8 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
         setOrders(existing.data);
         setFetchedAt(existing.fetchedAt ? new Date(existing.fetchedAt) : null);
         setLastSyncAt(existing.lastSyncAt ? new Date(existing.lastSyncAt) : null);
-        setSyncStatus(existing.syncStatus || syncStatus || null);
-        setSyncMeta(existing.syncMeta || syncMeta || null);
+        setSyncStatus(existing.syncStatus || syncStatusRef.current || null);
+        setSyncMeta(existing.syncMeta || syncMetaRef.current || null);
         setError(null);
       } else {
         setError(e.message);
@@ -107,7 +131,7 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, cacheKey, includeUnattributed, syncMeta, syncStatus]);
+  }, [dateFrom, dateTo, cacheKey, includeUnattributed]);
 
   useEffect(() => { fetch(); }, [fetch]);
 

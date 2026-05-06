@@ -93,17 +93,16 @@ export default function Orders() {
         {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
         {loading && (
           <DataLoadingState
-            title="Caricamento ordini"
+            title="Aggiornamento ordini in corso"
             messages={[
-              'Leggo ordini gia salvati...',
-              'Verifico dettagli disponibili...',
-              'Aggiorno lo stato ordini...'
+              'Mantengo gli ordini correnti a schermo...',
+              'Scarico nuovi contratti e dettagli...',
+              'Applico le modifiche appena disponibili...'
             ]}
           />
         )}
 
-        {!loading && (
-          <>
+        <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               <KpiCard label="Ordini Totali" value={orders.length} color="green" />
               <KpiCard label="Da arricchire" value={toEnrich.length} color="purple" />
@@ -188,7 +187,6 @@ export default function Orders() {
               </div>
             </div>
           </>
-        )}
       </div>
     </div>
   );
