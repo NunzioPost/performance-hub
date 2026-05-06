@@ -23,6 +23,9 @@ const ORDERS_FORCE_SYNC_INLINE_BUDGET_MS = Number(
 );
 const ORDERS_SYNC_CHUNK_DAYS = Math.max(1, Number(process.env.ORDERS_SYNC_CHUNK_DAYS || 1));
 const ORDERS_SYNC_MAX_CHUNKS_PER_RUN = Math.max(1, Number(process.env.ORDERS_SYNC_MAX_CHUNKS_PER_RUN || 7));
+const ORDERS_SYNC_RETRY_BASE_MS = Math.max(1000, Number(process.env.ORDERS_SYNC_RETRY_BASE_MS || 2000));
+const ORDERS_SYNC_RETRY_MAX_MS = Math.max(5000, Number(process.env.ORDERS_SYNC_RETRY_MAX_MS || 120000));
+const ORDERS_SYNC_MAX_RETRIES = Math.max(0, Number(process.env.ORDERS_SYNC_MAX_RETRIES || 0)); // 0 = infinito
 const SIDIAL_SYNC_INTERVAL_MINUTES = Number(process.env.SIDIAL_SYNC_INTERVAL_MINUTES || 18);
 const SIDIAL_HTTP_TIMEOUT_MS = Number(process.env.SIDIAL_HTTP_TIMEOUT_MS || 15000);
 const SIDIAL_DETAILS_HTTP_TIMEOUT_MS = Number(process.env.SIDIAL_DETAILS_HTTP_TIMEOUT_MS || 12000);
@@ -198,6 +201,28 @@ function getSidialConfig() {
   return { baseUrl, apiToken };
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isFatalOrdersSyncError(err) {
+  const status = Number(err?.status || err?.response?.status || 0);
+  const code = String(err?.code || '').toUpperCase();
+  const msg = String(err?.message || '').toLowerCase();
+
+  if ([400, 401, 403].includes(status)) return true;
+  if (
+    code === 'SIDIAL_NOT_CONFIGURED'
+    || code === 'SIDIAL_BASE_URL_INVALID'
+    || code === 'SIDIAL_TOKEN_INVALID'
+    || code === 'ORDERS_RANGE_INVALID'
+  ) return true;
+  if (msg.includes('token sidial non valido')) return true;
+  if (msg.includes('non configurato')) return true;
+
+  return false;
+}
+
 export function buildOrdersCacheKey(dateFrom, dateTo, includeUnattributed = false) {
   return `orders:${dateFrom}:${dateTo}:includeUnattributed=${includeUnattributed ? '1' : '0'}`;
 }
@@ -209,17 +234,19 @@ function buildOrdersSyncJobKey(dateFrom, dateTo, includeUnattributed = false) {
 export function scheduleOrdersSync(dateFrom, dateTo, options = {}) {
   const { includeUnattributed = false } = options;
   const key = buildOrdersSyncJobKey(dateFrom, dateTo, includeUnattributed);
+  const cacheKey = buildOrdersCacheKey(dateFrom, dateTo, includeUnattributed);
   if (ordersSyncInFlight.has(key)) {
     return { queued: false, running: true };
   }
 
   const task = (async () => {
     try {
-      const maxAttempts = Math.max(1, Number(process.env.ORDERS_SYNC_RETRY_ATTEMPTS || 4));
       let attempts = 0;
 
-      while (attempts < maxAttempts) {
-        attempts += 1;
+      // Retry automatico: per errori transitori continua finché completa il range.
+      // Si interrompe solo su errori fatali (config/token/range non validi) o su limite esplicito.
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
         try {
           // Continua da checkpoint finché non completa tutto il range.
           // Se il range è molto grande, procede a blocchi e riprende automaticamente.
@@ -229,10 +256,57 @@ export function scheduleOrdersSync(dateFrom, dateTo, options = {}) {
             if (step.done) return;
           }
         } catch (err) {
-          const waitMs = Math.min(30000, 2000 * attempts);
-          console.warn(`[ORDERS-SYNC] ${key} attempt ${attempts}/${maxAttempts} failed: ${err.message}`);
-          if (attempts >= maxAttempts) break;
-          await new Promise((resolve) => setTimeout(resolve, waitMs));
+          attempts += 1;
+          const fatal = isFatalOrdersSyncError(err);
+          const hitLimit = ORDERS_SYNC_MAX_RETRIES > 0 && attempts >= ORDERS_SYNC_MAX_RETRIES;
+          const current = sidialStoreEnabled() ? await getSyncState(cacheKey) : null;
+          const resumeFrom = current?.meta?.resumeFrom || dateFrom;
+
+          if (fatal || hitLimit) {
+            if (sidialStoreEnabled()) {
+              await upsertSyncState(cacheKey, {
+                status: 'error',
+                rowsCount: current?.rows_count || 0,
+                message: err.message,
+                meta: {
+                  ...(current?.meta || {}),
+                  includeUnattributed,
+                  phase: fatal ? 'failed_fatal' : 'failed_retry_limit',
+                  rangeFrom: dateFrom,
+                  rangeTo: dateTo,
+                  resumeFrom,
+                  retryCount: attempts
+                }
+              });
+            }
+            console.warn(`[ORDERS-SYNC] ${key} stop (${fatal ? 'fatal' : 'retry-limit'}) after ${attempts} attempts: ${err.message}`);
+            break;
+          }
+
+          const waitMs = Math.min(ORDERS_SYNC_RETRY_MAX_MS, ORDERS_SYNC_RETRY_BASE_MS * (2 ** Math.min(attempts, 8)));
+          const nextRetryAt = new Date(Date.now() + waitMs).toISOString();
+
+          if (sidialStoreEnabled()) {
+            await upsertSyncState(cacheKey, {
+              status: 'syncing',
+              rowsCount: current?.rows_count || 0,
+              message: err.message,
+              meta: {
+                ...(current?.meta || {}),
+                includeUnattributed,
+                phase: 'retry_wait',
+                rangeFrom: dateFrom,
+                rangeTo: dateTo,
+                resumeFrom,
+                retryCount: attempts,
+                nextRetryAt,
+                lastError: err.message
+              }
+            });
+          }
+
+          console.warn(`[ORDERS-SYNC] ${key} transient error attempt ${attempts}, retry in ${waitMs}ms from ${resumeFrom}: ${err.message}`);
+          await sleep(waitMs);
         }
       }
     } finally {
@@ -529,17 +603,18 @@ async function syncOrdersRangeWithCheckpoint(dateFrom, dateTo, options = {}) {
       await fetchOrdersLiveRange(chunkFrom, chunkTo, { includeUnattributed, forceSync: true });
     } catch (err) {
       await upsertSyncState(cacheKey, {
-        status: 'error',
+        status: 'syncing',
         rowsCount: currentSync?.rows_count || 0,
         message: err.message,
         meta: {
           ...(currentSync?.meta || {}),
           includeUnattributed,
-          phase: 'orders_live_sync',
+          phase: 'chunk_failed_retrying',
           rangeFrom: dateFrom,
           rangeTo: dateTo,
           resumeFrom: chunkFrom,
-          chunksDone
+          chunksDone,
+          lastError: err.message
         }
       });
       throw err;

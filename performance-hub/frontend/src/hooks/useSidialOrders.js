@@ -135,6 +135,49 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
 
   useEffect(() => { fetch(); }, [fetch]);
 
+  useEffect(() => {
+    if (!dateFrom || !dateTo) return;
+    if (syncStatus !== 'syncing') return;
+
+    const timer = setInterval(async () => {
+      try {
+        const res = await api.get('/sidial/orders/sync-status', {
+          params: {
+            dateFrom,
+            dateTo,
+            includeUnattributed: includeUnattributed ? 1 : 0
+          }
+        });
+
+        const status = res.data?.syncStatus || null;
+        const syncAt = res.data?.lastSyncAt ? new Date(res.data.lastSyncAt) : null;
+        const meta = res.data?.syncMeta || null;
+
+        setSyncStatus(status);
+        setLastSyncAt(syncAt);
+        setSyncMeta(meta);
+
+        const existing = readCache(cacheKey) || {};
+        writeCache(cacheKey, {
+          ...existing,
+          data: Array.isArray(existing.data) ? existing.data : ordersRef.current,
+          fetchedAt: existing.fetchedAt || new Date().toISOString(),
+          lastSyncAt: syncAt ? syncAt.toISOString() : null,
+          syncStatus: status,
+          syncMeta: meta
+        });
+
+        if (status && status !== 'syncing') {
+          fetch({ force: true, forceSync: false });
+        }
+      } catch {
+        // ignora: retry al tick successivo
+      }
+    }, 8000);
+
+    return () => clearInterval(timer);
+  }, [syncStatus, dateFrom, dateTo, includeUnattributed, cacheKey, fetch]);
+
   const refetch = useCallback((options = {}) => fetch({ force: true, ...options }), [fetch]);
   return {
     orders, loading, error, fetchedAt, lastSyncAt, syncStatus, syncMeta, refetch

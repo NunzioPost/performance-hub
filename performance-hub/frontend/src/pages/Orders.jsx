@@ -48,25 +48,6 @@ export default function Orders() {
     writeRangeState('ph:orders:range:v2', dateRange);
   }, [dateRange]);
 
-  useEffect(() => {
-    if (syncStatus !== 'syncing') return;
-    const timer = setInterval(() => {
-      api.get('/sidial/orders/sync-status', {
-        params: {
-          dateFrom: dateRange.from,
-          dateTo: dateRange.to,
-          includeUnattributed: 1
-        }
-      }).then((res) => {
-        const status = res.data?.syncStatus || null;
-        if (status && status !== 'syncing') {
-          refetch({ forceSync: false });
-        }
-      }).catch(() => {});
-    }, 8000);
-    return () => clearInterval(timer);
-  }, [syncStatus, refetch, dateRange.from, dateRange.to]);
-
   function handleRefresh() {
     // Refresh manuale: forza sync live su SIDIAL anche su range storico.
     refetch({ forceSync: true });
