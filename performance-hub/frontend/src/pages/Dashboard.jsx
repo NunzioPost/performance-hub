@@ -146,7 +146,14 @@ export default function Dashboard() {
     useSidialLeads(dateRange.from, dateRange.to, 'google');
   const { leads: metaLeads, loading: l2, error: e2, refetch: r2 } =
     useSidialLeads(dateRange.from, dateRange.to, 'meta');
-  const { orders, loading: l3, error: e3, fetchedAt: ordersFetchedAt, refetch: r3 } =
+  const {
+    orders,
+    loading: l3,
+    error: e3,
+    fetchedAt: ordersFetchedAt,
+    lastSyncAt: ordersLastSyncAt,
+    refetch: r3
+  } =
     useSidialOrders(dateRange.from, dateRange.to);
   const { insights: metaInsights, loading: l4, error: e4, fetchedAt: metaFetchedAt, refetch: r4 } =
     useMetaInsights(dateRange.from, dateRange.to);
@@ -446,7 +453,7 @@ export default function Dashboard() {
               />
               <OrdersSummaryCard
                 orders={totalOrders}
-                checkedAt={ordersFetchedAt || lastUpdated}
+                checkedAt={ordersLastSyncAt || ordersFetchedAt || lastUpdated}
                 connected={!e3}
               />
               <SourceSummaryCard
