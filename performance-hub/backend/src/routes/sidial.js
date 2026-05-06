@@ -67,15 +67,18 @@ router.get('/orders', async (req, res, next) => {
 
     const orders = await getOrders(dateFrom, dateTo, {
       includeUnattributed: includeUnattr,
-      forceSync: false
+      forceSync: false,
+      cacheOnly: true
     });
 
     let lastSyncAt = null;
     let syncStatus = null;
+    let syncMeta = null;
     if (sidialStoreEnabled()) {
       const sync = await getSyncState(buildOrdersCacheKey(dateFrom, dateTo, includeUnattr));
       lastSyncAt = sync?.last_sync_at || null;
       syncStatus = sync?.status || null;
+      syncMeta = sync?.meta || null;
     }
 
     res.json({
@@ -83,6 +86,7 @@ router.get('/orders', async (req, res, next) => {
       count: orders.length,
       lastSyncAt,
       syncStatus,
+      syncMeta,
       syncQueued,
       syncRunning,
       data: orders

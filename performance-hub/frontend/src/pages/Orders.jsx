@@ -37,7 +37,7 @@ export default function Orders() {
   };
   const [dateRange, setDateRange] = useState(readRangeState('ph:orders:range:v2', initialDateRange));
   const {
-    orders, loading, error, refetch, lastSyncAt, syncStatus
+    orders, loading, error, refetch, lastSyncAt, syncStatus, syncMeta
   } = useSidialOrders(dateRange.from, dateRange.to, true);
   const [enriching, setEnriching] = useState(false);
   const [enrichProgress, setEnrichProgress] = useState({ done: 0, total: 0 });
@@ -47,6 +47,14 @@ export default function Orders() {
   useEffect(() => {
     writeRangeState('ph:orders:range:v2', dateRange);
   }, [dateRange]);
+
+  useEffect(() => {
+    if (syncStatus !== 'syncing') return;
+    const timer = setInterval(() => {
+      refetch({ forceSync: false });
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [syncStatus, refetch]);
 
   function handleRefresh() {
     // Refresh manuale: forza sync live su SIDIAL anche su range storico.
@@ -93,6 +101,13 @@ export default function Orders() {
             <div className="mb-3 text-xs text-slate-400">
               Ultimo sync ordini: {lastSyncAt ? lastSyncAt.toLocaleString('it-IT') : '—'} {syncStatus ? `(${syncStatus})` : ''}
             </div>
+            {syncStatus === 'syncing' && (
+              <div className="mb-3 text-xs text-amber-300">
+                Sync in corso
+                {syncMeta?.chunksDone ? ` • chunk completati: ${syncMeta.chunksDone}` : ''}
+                {syncMeta?.resumeFrom ? ` • ripartenza da: ${syncMeta.resumeFrom}` : ''}
+              </div>
+            )}
 
             <div className="flex justify-end mb-3">
               <button

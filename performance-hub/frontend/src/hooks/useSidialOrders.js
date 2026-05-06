@@ -28,6 +28,7 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
   const [fetchedAt, setFetchedAt] = useState(cached?.fetchedAt ? new Date(cached.fetchedAt) : null);
   const [lastSyncAt, setLastSyncAt] = useState(cached?.lastSyncAt ? new Date(cached.lastSyncAt) : null);
   const [syncStatus, setSyncStatus] = useState(cached?.syncStatus || null);
+  const [syncMeta, setSyncMeta] = useState(cached?.syncMeta || null);
 
   const fetch = useCallback(async (options = {}) => {
     const { force = false, forceSync = false } = options;
@@ -40,6 +41,7 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
         setFetchedAt(existing.fetchedAt ? new Date(existing.fetchedAt) : null);
         setLastSyncAt(existing.lastSyncAt ? new Date(existing.lastSyncAt) : null);
         setSyncStatus(existing.syncStatus || null);
+        setSyncMeta(existing.syncMeta || null);
         setError(null);
         return;
       }
@@ -61,16 +63,19 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
       const now = new Date();
       const syncAt = res.data.lastSyncAt ? new Date(res.data.lastSyncAt) : null;
       const status = res.data.syncStatus || null;
+      const meta = res.data.syncMeta || null;
 
       setOrders(data);
       setFetchedAt(now);
       setLastSyncAt(syncAt);
       setSyncStatus(status);
+      setSyncMeta(meta);
       writeCache(cacheKey, {
         data,
         fetchedAt: now.toISOString(),
         lastSyncAt: syncAt ? syncAt.toISOString() : null,
-        syncStatus: status
+        syncStatus: status,
+        syncMeta: meta
       });
     } catch (e) {
       setError(e.message);
@@ -82,5 +87,7 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
   useEffect(() => { fetch(); }, [fetch]);
 
   const refetch = useCallback((options = {}) => fetch({ force: true, ...options }), [fetch]);
-  return { orders, loading, error, fetchedAt, lastSyncAt, syncStatus, refetch };
+  return {
+    orders, loading, error, fetchedAt, lastSyncAt, syncStatus, syncMeta, refetch
+  };
 }

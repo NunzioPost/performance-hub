@@ -21,6 +21,8 @@ const ORDERS_INLINE_ENRICH_BUDGET_MS = Number(process.env.ORDERS_INLINE_ENRICH_B
 const ORDERS_FORCE_SYNC_INLINE_BUDGET_MS = Number(
   process.env.ORDERS_FORCE_SYNC_INLINE_BUDGET_MS || ORDERS_INLINE_ENRICH_BUDGET_MS
 );
+const ORDERS_SYNC_CHUNK_DAYS = Math.max(1, Number(process.env.ORDERS_SYNC_CHUNK_DAYS || 1));
+const ORDERS_SYNC_MAX_CHUNKS_PER_RUN = Math.max(1, Number(process.env.ORDERS_SYNC_MAX_CHUNKS_PER_RUN || 7));
 const SIDIAL_SYNC_INTERVAL_MINUTES = Number(process.env.SIDIAL_SYNC_INTERVAL_MINUTES || 18);
 const SIDIAL_HTTP_TIMEOUT_MS = Number(process.env.SIDIAL_HTTP_TIMEOUT_MS || 15000);
 const SIDIAL_DETAILS_HTTP_TIMEOUT_MS = Number(process.env.SIDIAL_DETAILS_HTTP_TIMEOUT_MS || 12000);
@@ -131,6 +133,27 @@ function formatDateTime(date, isEnd = false) {
   return `${y}-${m}-${d} ${isEnd ? '23:59:59' : '00:00:00'}`;
 }
 
+function parseDateTime(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function startOfDay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function endOfDay(date) {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 function todayDateString() {
   const now = new Date();
   const y = now.getFullYear();
@@ -192,9 +215,26 @@ export function scheduleOrdersSync(dateFrom, dateTo, options = {}) {
 
   const task = (async () => {
     try {
-      await getOrders(dateFrom, dateTo, { includeUnattributed, forceSync: true });
-    } catch (err) {
-      console.warn(`[ORDERS-SYNC] ${key} failed: ${err.message}`);
+      const maxAttempts = Math.max(1, Number(process.env.ORDERS_SYNC_RETRY_ATTEMPTS || 4));
+      let attempts = 0;
+
+      while (attempts < maxAttempts) {
+        attempts += 1;
+        try {
+          // Continua da checkpoint finché non completa tutto il range.
+          // Se il range è molto grande, procede a blocchi e riprende automaticamente.
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const step = await syncOrdersRangeWithCheckpoint(dateFrom, dateTo, { includeUnattributed });
+            if (step.done) return;
+          }
+        } catch (err) {
+          const waitMs = Math.min(30000, 2000 * attempts);
+          console.warn(`[ORDERS-SYNC] ${key} attempt ${attempts}/${maxAttempts} failed: ${err.message}`);
+          if (attempts >= maxAttempts) break;
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
+        }
+      }
     } finally {
       ordersSyncInFlight.delete(key);
     }
@@ -373,8 +413,184 @@ export async function searchLeads(campaignListPairs, dateFrom, dateTo, options =
   }
 }
 
-export async function getOrders(dateFrom, dateTo, options = {}) {
+async function fetchOrdersLiveRange(dateFrom, dateTo, options = {}) {
   const { includeUnattributed = false, forceSync = false } = options;
+  const allowedServices = getAllowedOrderServices();
+  const includesToday = rangeIncludesToday(dateFrom, dateTo);
+
+  const { baseUrl, apiToken } = getSidialConfig();
+  const url = new URL(baseUrl);
+  url.searchParams.set('a', 'getOrderList');
+  url.searchParams.set('apiToken', apiToken);
+  url.searchParams.set('dateFrom', dateFrom);
+  url.searchParams.set('dateTo', dateTo);
+  url.searchParams.set('services', 'punit_service_desc_70928');
+
+  const response = await axios.get(url.toString(), {
+    timeout: SIDIAL_HTTP_TIMEOUT_MS
+  });
+
+  const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+  if (text.trim() === 'token errata') {
+    throw Object.assign(new Error('Token Sidial non valido'), { status: 401, code: 'SIDIAL_TOKEN_INVALID' });
+  }
+
+  const json = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+  if (json?.response?.error === true) {
+    throw Object.assign(
+      new Error('Errore Sidial ordini: ' + (json.response.message || 'sconosciuto')),
+      { status: 502 }
+    );
+  }
+
+  let orders = [];
+  if (Array.isArray(json)) orders = json;
+  else if (Array.isArray(json.results)) orders = json.results;
+  else if (Array.isArray(json.orders)) orders = json.orders;
+
+  const filtered = orders
+    .map((order) => ({
+      ...order,
+      createdWhen: order.createdWhen || order.createWhen || order.date || null
+    }))
+    .filter((order) => isOrderInAllowedServices(order, allowedServices));
+
+  let enriched = await enrichOrdersWithAttribution(filtered);
+
+  if (!includeUnattributed) {
+    const hydrateLimit = forceSync
+      ? Math.max(1, ORDERS_FORCE_SYNC_ENRICH_MAX)
+      : includesToday
+        ? Math.max(0, ON_DEMAND_ENRICH_MAX)
+        : Math.max(1, ORDERS_HISTORICAL_ENRICH_MAX);
+    const toHydrate = enriched
+      .filter(needsOrderDetails)
+      .slice(0, hydrateLimit);
+
+    if (toHydrate.length > 0) {
+      await enrichOrderDetailsWithBudget(toHydrate, {
+        maxOrders: toHydrate.length,
+        concurrency: ON_DEMAND_ENRICH_CONCURRENCY,
+        budgetMs: forceSync ? ORDERS_FORCE_SYNC_INLINE_BUDGET_MS : ORDERS_INLINE_ENRICH_BUDGET_MS
+      });
+      enriched = await enrichOrdersWithAttribution(filtered);
+    }
+  }
+
+  if (sidialStoreEnabled()) {
+    await upsertOrders(enriched);
+  }
+
+  if (includeUnattributed) return enriched;
+  return enriched.filter(hasOrderAttribution);
+}
+
+async function syncOrdersRangeWithCheckpoint(dateFrom, dateTo, options = {}) {
+  const { includeUnattributed = false } = options;
+  const cacheKey = buildOrdersCacheKey(dateFrom, dateTo, includeUnattributed);
+  const fromDate = parseDateTime(dateFrom);
+  const toDate = parseDateTime(dateTo);
+  if (!fromDate || !toDate || fromDate > toDate) {
+    throw Object.assign(new Error('Range ordini non valido'), { status: 400, code: 'ORDERS_RANGE_INVALID' });
+  }
+
+  const currentSync = sidialStoreEnabled() ? await getSyncState(cacheKey) : null;
+  const resumeFromRaw = currentSync?.meta?.resumeFrom;
+  const resumeDate = parseDateTime(resumeFromRaw);
+  const startDate = resumeDate && resumeDate >= fromDate && resumeDate <= toDate ? resumeDate : fromDate;
+
+  let cursor = startOfDay(startDate);
+  const hardEnd = endOfDay(toDate);
+  let chunksDone = 0;
+
+  await upsertSyncState(cacheKey, {
+    status: 'syncing',
+    rowsCount: currentSync?.rows_count || 0,
+    meta: {
+      ...(currentSync?.meta || {}),
+      includeUnattributed,
+      phase: 'orders_live_sync',
+      rangeFrom: dateFrom,
+      rangeTo: dateTo,
+      resumeFrom: formatDateTime(cursor, false),
+      chunkDays: ORDERS_SYNC_CHUNK_DAYS
+    }
+  });
+
+  while (cursor <= hardEnd && chunksDone < ORDERS_SYNC_MAX_CHUNKS_PER_RUN) {
+    const chunkStart = new Date(cursor);
+    const chunkEnd = new Date(chunkStart);
+    chunkEnd.setDate(chunkEnd.getDate() + ORDERS_SYNC_CHUNK_DAYS - 1);
+    const boundedEnd = chunkEnd > hardEnd ? hardEnd : chunkEnd;
+    const chunkFrom = formatDateTime(chunkStart, false);
+    const chunkTo = formatDateTime(boundedEnd, true);
+
+    try {
+      await fetchOrdersLiveRange(chunkFrom, chunkTo, { includeUnattributed, forceSync: true });
+    } catch (err) {
+      await upsertSyncState(cacheKey, {
+        status: 'error',
+        rowsCount: currentSync?.rows_count || 0,
+        message: err.message,
+        meta: {
+          ...(currentSync?.meta || {}),
+          includeUnattributed,
+          phase: 'orders_live_sync',
+          rangeFrom: dateFrom,
+          rangeTo: dateTo,
+          resumeFrom: chunkFrom,
+          chunksDone
+        }
+      });
+      throw err;
+    }
+
+    chunksDone += 1;
+    cursor = new Date(boundedEnd);
+    cursor.setDate(cursor.getDate() + 1);
+    cursor = startOfDay(cursor);
+
+    const done = cursor > hardEnd;
+    const nextResume = done ? null : formatDateTime(cursor, false);
+    await upsertSyncState(cacheKey, {
+      status: done ? 'ok' : 'syncing',
+      rowsCount: currentSync?.rows_count || 0,
+      meta: {
+        ...(currentSync?.meta || {}),
+        includeUnattributed,
+        phase: done ? 'complete' : 'orders_live_sync',
+        rangeFrom: dateFrom,
+        rangeTo: dateTo,
+        resumeFrom: nextResume,
+        chunksDone
+      }
+    });
+  }
+
+  if (cursor > hardEnd) {
+    const full = sidialStoreEnabled()
+      ? await getOrdersByRange({ dateFrom, dateTo, includeUnattributed })
+      : [];
+    await upsertSyncState(cacheKey, {
+      status: 'ok',
+      rowsCount: full.length,
+      meta: {
+        includeUnattributed,
+        phase: 'complete',
+        rangeFrom: dateFrom,
+        rangeTo: dateTo,
+        resumeFrom: null,
+        chunksDone
+      }
+    });
+    return { done: true, rowsCount: full.length, chunksDone };
+  }
+
+  return { done: false, rowsCount: currentSync?.rows_count || 0, chunksDone };
+}
+
+export async function getOrders(dateFrom, dateTo, options = {}) {
+  const { includeUnattributed = false, forceSync = false, cacheOnly = false } = options;
   const includesToday = rangeIncludesToday(dateFrom, dateTo);
   const cacheKey = buildOrdersCacheKey(dateFrom, dateTo, includeUnattributed);
   const allowedServices = getAllowedOrderServices();
@@ -388,6 +604,7 @@ export async function getOrders(dateFrom, dateTo, options = {}) {
 
       // Cache-first rigoroso: niente sync live automatico se esiste gia un set locale/DB.
       if (cached.length > 0) return cached;
+      if (cacheOnly) return [];
 
       if (!includesToday && !includeUnattributed && cachedAll.length > cached.length) {
         const pending = cachedAll
@@ -413,77 +630,18 @@ export async function getOrders(dateFrom, dateTo, options = {}) {
     }
   }
 
-  const { baseUrl, apiToken } = getSidialConfig();
-  const url = new URL(baseUrl);
-  url.searchParams.set('a', 'getOrderList');
-  url.searchParams.set('apiToken', apiToken);
-  url.searchParams.set('dateFrom', dateFrom);
-  url.searchParams.set('dateTo', dateTo);
-  url.searchParams.set('services', 'punit_service_desc_70928');
+  if (cacheOnly) return [];
 
   try {
-    const response = await axios.get(url.toString(), {
-      timeout: SIDIAL_HTTP_TIMEOUT_MS
-    });
-
-    const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-    if (text.trim() === 'token errata') {
-      throw Object.assign(new Error('Token Sidial non valido'), { status: 401, code: 'SIDIAL_TOKEN_INVALID' });
-    }
-
-    const json = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-    if (json?.response?.error === true) {
-      throw Object.assign(
-        new Error('Errore Sidial ordini: ' + (json.response.message || 'sconosciuto')),
-        { status: 502 }
-      );
-    }
-
-    let orders = [];
-    if (Array.isArray(json)) orders = json;
-    else if (Array.isArray(json.results)) orders = json.results;
-    else if (Array.isArray(json.orders)) orders = json.orders;
-
-    const filtered = orders
-      .map((order) => ({
-      ...order,
-      createdWhen: order.createdWhen || order.createWhen || order.date || null
-      }))
-      .filter((order) => isOrderInAllowedServices(order, allowedServices));
-
-    let enriched = await enrichOrdersWithAttribution(filtered);
-
-    if (!includeUnattributed) {
-      const hydrateLimit = forceSync
-        ? Math.max(1, ORDERS_FORCE_SYNC_ENRICH_MAX)
-        : includesToday
-          ? Math.max(0, ON_DEMAND_ENRICH_MAX)
-          : Math.max(1, ORDERS_HISTORICAL_ENRICH_MAX);
-      const toHydrate = enriched
-        .filter(needsOrderDetails)
-        .slice(0, hydrateLimit);
-
-      if (toHydrate.length > 0) {
-        await enrichOrderDetailsWithBudget(toHydrate, {
-          maxOrders: toHydrate.length,
-          concurrency: ON_DEMAND_ENRICH_CONCURRENCY,
-          budgetMs: forceSync ? ORDERS_FORCE_SYNC_INLINE_BUDGET_MS : ORDERS_INLINE_ENRICH_BUDGET_MS
-        });
-        enriched = await enrichOrdersWithAttribution(filtered);
-      }
-    }
-
+    const data = await fetchOrdersLiveRange(dateFrom, dateTo, { includeUnattributed, forceSync });
     if (sidialStoreEnabled()) {
-      await upsertOrders(enriched);
       await upsertSyncState(cacheKey, {
         status: 'ok',
-        rowsCount: enriched.length,
-        meta: { dateFrom, dateTo, includeUnattributed }
+        rowsCount: data.length,
+        meta: { dateFrom, dateTo, includeUnattributed, phase: 'complete', resumeFrom: null }
       });
     }
-
-    if (includeUnattributed) return enriched;
-    return enriched.filter(hasOrderAttribution);
+    return data;
   } catch (err) {
     if (sidialStoreEnabled()) {
       try {
