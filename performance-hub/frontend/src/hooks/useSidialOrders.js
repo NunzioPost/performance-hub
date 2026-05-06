@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../lib/api';
+import { scopedKey } from '../lib/cacheScope';
 
 const ORDERS_TIMEOUT_MS = 90000;
 
@@ -19,7 +20,7 @@ function writeCache(key, value) {
 }
 
 export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
-  const cacheKey = `ph:v2:sidial:orders:${dateFrom || ''}:${dateTo || ''}:includeUnattributed=${includeUnattributed ? '1' : '0'}`;
+  const cacheKey = scopedKey(`ph:v2:sidial:orders:${dateFrom || ''}:${dateTo || ''}:includeUnattributed=${includeUnattributed ? '1' : '0'}`);
   const cached = readCache(cacheKey);
 
   const [orders, setOrders] = useState(cached?.data || []);

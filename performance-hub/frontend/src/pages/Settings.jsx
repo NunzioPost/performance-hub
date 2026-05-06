@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import api from '../lib/api';
 import CampaignConfigSection from '../components/settings/CampaignConfigSection';
+import UserManagementSection from '../components/settings/UserManagementSection';
+import { scopedKey } from '../lib/cacheScope';
+import { useAuth } from '../context/AuthContext';
 
 function Section({ title, fields, storageKey }) {
-  const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  const scopedStorageKey = scopedKey(storageKey);
+  const saved = JSON.parse(localStorage.getItem(scopedStorageKey) || '{}');
   const [values, setValues] = useState(saved);
   const [status, setStatus] = useState(null);
 
   function handleSave() {
-    localStorage.setItem(storageKey, JSON.stringify(values));
+    localStorage.setItem(scopedStorageKey, JSON.stringify(values));
     setStatus({ ok: true, msg: 'Salvato. Ricorda di aggiornare il file .env del backend con questi valori.' });
   }
 
@@ -64,6 +68,8 @@ function Section({ title, fields, storageKey }) {
 }
 
 export default function Settings() {
+  const { isAdmin } = useAuth();
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/60 backdrop-blur">
@@ -73,6 +79,7 @@ export default function Settings() {
         </p>
       </div>
       <div className="flex-1 overflow-y-auto p-6 bg-transparent">
+        {isAdmin && <UserManagementSection />}
         <CampaignConfigSection />
 
         <Section title="Sidial" storageKey="cfg_sidial" fields={[

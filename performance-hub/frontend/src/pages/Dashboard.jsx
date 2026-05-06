@@ -12,6 +12,7 @@ import { useSidialOrders } from '../hooks/useSidialOrders';
 import { useMetaInsights } from '../hooks/useMetaInsights';
 import { useGoogleInsights } from '../hooks/useGoogleInsights';
 import { useCampaignConfig } from '../hooks/useCampaignConfig';
+import { scopedKey } from '../lib/cacheScope';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 function toDateTime(date, isEnd) {
@@ -127,12 +128,13 @@ function OrdersSummaryCard({ orders, checkedAt, connected = true }) {
 }
 
 export default function Dashboard() {
+  const rangeStorageKey = scopedKey('ph:dashboard:range:v2');
   const today = new Date();
   const initialDateRange = {
     from: toDateTime(startOfMonth(today), false),
     to: toDateTime(endOfMonth(today), true)
   };
-  const [dateRange, setDateRange] = useState(readRangeState('ph:dashboard:range:v2', initialDateRange));
+  const [dateRange, setDateRange] = useState(readRangeState(rangeStorageKey, initialDateRange));
   const [lastUpdated, setLastUpdated] = useState(null);
   const prevLoadingRef = useRef(false);
   const [expandedClients, setExpandedClients] = useState({});
@@ -176,8 +178,8 @@ export default function Dashboard() {
   }, [loading]);
 
   useEffect(() => {
-    writeRangeState('ph:dashboard:range:v2', dateRange);
-  }, [dateRange]);
+    writeRangeState(rangeStorageKey, dateRange);
+  }, [rangeStorageKey, dateRange]);
 
   const totalLeads = googleLeads.length + metaLeads.length;
   const metaSpend = metaInsights?.spend || 0;

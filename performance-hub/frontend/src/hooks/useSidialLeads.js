@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../lib/api';
+import { scopedKey } from '../lib/cacheScope';
 
 function readCache(key) {
   try {
@@ -17,7 +18,7 @@ function writeCache(key, value) {
 }
 
 export function useSidialLeads(dateFrom, dateTo, type) {
-  const cacheKey = `ph:sidial:leads:${type || 'all'}:${dateFrom || ''}:${dateTo || ''}`;
+  const cacheKey = scopedKey(`ph:sidial:leads:${type || 'all'}:${dateFrom || ''}:${dateTo || ''}`);
   const cached = readCache(cacheKey);
 
   const [leads, setLeads] = useState(cached?.data || []);

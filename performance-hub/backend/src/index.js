@@ -8,10 +8,13 @@ import sidialRoutes from './routes/sidial.js';
 import metaRoutes from './routes/meta.js';
 import googleRoutes from './routes/google.js';
 import configRoutes from './routes/config.js';
+import authRoutes from './routes/auth.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requireAuth } from './middleware/auth.js';
 import { autoEnrichOrders, warmSidialCache } from './services/sidialService.js';
 import { warmMetaInsights } from './services/metaService.js';
 import { warmGoogleInsights } from './services/googleService.js';
+import { ensureBootstrapAdmin } from './services/authService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,6 +80,8 @@ app.get('/api', (req, res) => {
   });
 });
 
+app.use('/api/auth', authRoutes);
+
 // OAuth Google - route temporanea per ottenere il refresh token
 // Usala una volta sola durante il setup, poi puoi ignorarla
 app.get('/oauth/google/start', (req, res) => {
@@ -119,9 +124,9 @@ app.get('/oauth/callback', async (req, res) => {
   }
 });
 
-app.use('/api/sidial', sidialRoutes);
-app.use('/api/meta', metaRoutes);
-app.use('/api/google', googleRoutes);
+app.use('/api/sidial', requireAuth, sidialRoutes);
+app.use('/api/meta', requireAuth, metaRoutes);
+app.use('/api/google', requireAuth, googleRoutes);
 app.use('/api/config', configRoutes);
 
 app.use(errorHandler);
@@ -253,6 +258,9 @@ function startMarketingWarmupJob() {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Performance Hub backend in ascolto su http://0.0.0.0:${PORT}`);
+  ensureBootstrapAdmin().catch((err) => {
+    console.error(`[AUTH] bootstrap admin non inizializzato: ${err.message}`);
+  });
   startAutoEnrichJob();
   startSidialWarmupJob();
   startMarketingWarmupJob();

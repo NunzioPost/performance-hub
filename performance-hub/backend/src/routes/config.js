@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { getCampaignConfig, saveCampaignConfig, getClientCampaignTree } from '../services/campaignConfigService.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
+router.use(requireAuth);
 
 // GET /api/config/campaigns
 router.get('/campaigns', async (req, res, next) => {
@@ -24,7 +26,7 @@ router.get('/campaign-tree', async (req, res, next) => {
 });
 
 // PUT /api/config/campaigns
-router.put('/campaigns', async (req, res, next) => {
+router.put('/campaigns', requireRole('admin'), async (req, res, next) => {
   try {
     const nextConfig = req.body;
     if (!nextConfig || typeof nextConfig !== 'object') {

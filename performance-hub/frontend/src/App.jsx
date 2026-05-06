@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Leads from './pages/Leads';
@@ -6,23 +6,71 @@ import Orders from './pages/Orders';
 import Settings from './pages/Settings';
 import ClientCampaigns from './pages/ClientCampaigns';
 import SidialHistory from './pages/SidialHistory';
+import Login from './pages/Login';
+import { useAuth } from './context/AuthContext';
+
+function ProtectedLayout() {
+  return (
+    <div className="flex min-h-screen md:h-screen flex-col md:flex-row overflow-hidden bg-transparent">
+      <Sidebar />
+      <main className="flex-1 overflow-hidden flex flex-col">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+function AuthGate({ adminOnly = false }) {
+  const { ready, isAuthenticated, isAdmin } = useAuth();
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
+        Caricamento sessione...
+      </div>
+    );
+  }
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
+  return <Outlet />;
+}
+
+function PublicOnlyGate() {
+  const { ready, isAuthenticated } = useAuth();
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
+        Caricamento sessione...
+      </div>
+    );
+  }
+  if (isAuthenticated) return <Navigate to="/" replace />;
+  return <Outlet />;
+}
 
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="flex min-h-screen md:h-screen flex-col md:flex-row overflow-hidden bg-transparent">
-        <Sidebar />
-        <main className="flex-1 overflow-hidden flex flex-col">
-          <Routes>
+      <Routes>
+        <Route element={<PublicOnlyGate />}>
+          <Route path="/login" element={<Login />} />
+        </Route>
+
+        <Route element={<AuthGate />}>
+          <Route element={<ProtectedLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/leads" element={<Leads />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/sidial-history" element={<SidialHistory />} />
-            <Route path="/clients-campaigns" element={<ClientCampaigns />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
-        </main>
-      </div>
+            <Route element={<AuthGate adminOnly />}>
+              <Route path="/clients-campaigns" element={<ClientCampaigns />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Route>
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BrowserRouter>
   );
 }

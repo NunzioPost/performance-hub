@@ -5,6 +5,7 @@ import DataLoadingState from '../components/ui/DataLoadingState';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import { useSidialOrders } from '../hooks/useSidialOrders';
 import api from '../lib/api';
+import { scopedKey } from '../lib/cacheScope';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 function toDateTime(date, isEnd) {
@@ -30,12 +31,13 @@ function writeRangeState(key, dateRange) {
 }
 
 export default function Orders() {
+  const rangeStorageKey = scopedKey('ph:orders:range:v2');
   const today = new Date();
   const initialDateRange = {
     from: toDateTime(startOfMonth(today), false),
     to: toDateTime(endOfMonth(today), true)
   };
-  const [dateRange, setDateRange] = useState(readRangeState('ph:orders:range:v2', initialDateRange));
+  const [dateRange, setDateRange] = useState(readRangeState(rangeStorageKey, initialDateRange));
   const {
     orders, loading, error, refetch, lastSyncAt, syncStatus, syncMeta
   } = useSidialOrders(dateRange.from, dateRange.to, true);
@@ -45,8 +47,8 @@ export default function Orders() {
   const toEnrich = orders.filter((o) => !o.details_loaded || o.details_loaded !== 'yes');
 
   useEffect(() => {
-    writeRangeState('ph:orders:range:v2', dateRange);
-  }, [dateRange]);
+    writeRangeState(rangeStorageKey, dateRange);
+  }, [rangeStorageKey, dateRange]);
 
   function handleRefresh() {
     // Refresh manuale: forza sync live su SIDIAL anche su range storico.

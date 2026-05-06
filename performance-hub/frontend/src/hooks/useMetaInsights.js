@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../lib/api';
+import { scopedKey } from '../lib/cacheScope';
 
 function readCache(key) {
   try {
@@ -17,7 +18,7 @@ function writeCache(key, value) {
 }
 
 export function useMetaInsights(dateFrom, dateTo) {
-  const cacheKey = `ph:meta:insights:${dateFrom || ''}:${dateTo || ''}`;
+  const cacheKey = scopedKey(`ph:meta:insights:${dateFrom || ''}:${dateTo || ''}`);
   const cached = readCache(cacheKey);
 
   const [insights, setInsights] = useState(cached?.data || null);

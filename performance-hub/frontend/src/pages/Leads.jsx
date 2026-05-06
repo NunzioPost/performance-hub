@@ -4,6 +4,7 @@ import KpiCard from '../components/ui/KpiCard';
 import DataLoadingState from '../components/ui/DataLoadingState';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import { useSidialLeads } from '../hooks/useSidialLeads';
+import { scopedKey } from '../lib/cacheScope';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 function toDateTime(date, isEnd) {
@@ -85,12 +86,13 @@ function writeRangeState(key, dateRange) {
 }
 
 export default function Leads() {
+  const rangeStorageKey = scopedKey('ph:leads:range:v2');
   const today = new Date();
   const initialDateRange = {
     from: toDateTime(startOfMonth(today), false),
     to: toDateTime(endOfMonth(today), true)
   };
-  const [dateRange, setDateRange] = useState(readRangeState('ph:leads:range:v2', initialDateRange));
+  const [dateRange, setDateRange] = useState(readRangeState(rangeStorageKey, initialDateRange));
   const [tab, setTab] = useState('all');
 
   const { leads: googleLeads, loading: lg, error: eg, refetch: rg } =
@@ -112,8 +114,8 @@ export default function Leads() {
   };
 
   useEffect(() => {
-    writeRangeState('ph:leads:range:v2', dateRange);
-  }, [dateRange]);
+    writeRangeState(rangeStorageKey, dateRange);
+  }, [rangeStorageKey, dateRange]);
 
   const TABS = [
     { key: 'all', label: 'Tutti', count: allLeads.length },

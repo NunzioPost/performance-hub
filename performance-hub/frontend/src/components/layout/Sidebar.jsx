@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, FileText, Settings, BriefcaseBusiness, Database
+  LayoutDashboard, Users, FileText, Settings, BriefcaseBusiness, Database, LogOut
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import api from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -21,8 +22,13 @@ function StatusDot({ ok }) {
 }
 
 export default function Sidebar() {
+  const { user, isAdmin, logout } = useAuth();
   const [apiStatus, setApiStatus] = useState({ sidial: false, meta: false, google: false });
   const failCountRef = useRef({ sidial: 0, meta: 0, google: 0 });
+  const navItems = NAV.filter((item) => {
+    if (!isAdmin && (item.to === '/settings' || item.to === '/clients-campaigns')) return false;
+    return true;
+  });
 
   useEffect(() => {
     let active = true;
@@ -82,7 +88,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex flex-row md:flex-col gap-1 flex-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0">
-        {NAV.map(({ to, icon: Icon, label }) => (
+        {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
@@ -102,6 +108,19 @@ export default function Sidebar() {
       </nav>
 
       <div className="hidden md:flex border-t border-slate-800 pt-4 px-3 flex-col gap-2">
+        <div className="mb-3 pb-3 border-b border-slate-800">
+          <p className="text-xs text-slate-500 uppercase tracking-wide">Account</p>
+          <p className="text-xs text-slate-300 mt-1">{user?.name || user?.email || 'Utente'}</p>
+          <p className="text-[11px] text-slate-500">{String(user?.role || 'user').toUpperCase()}</p>
+          <button
+            type="button"
+            onClick={() => logout()}
+            className="mt-2 inline-flex items-center gap-1 text-xs text-slate-300 hover:text-slate-100"
+          >
+            <LogOut size={12} />
+            Esci
+          </button>
+        </div>
         <p className="text-xs text-slate-500 mb-1 uppercase tracking-wide">Stato API</p>
         {[
           ['Sidial', apiStatus.sidial],
