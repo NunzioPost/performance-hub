@@ -88,7 +88,7 @@ export default function Sidebar() {
         <img
           src={mediacomLogo}
           alt="Mediacom"
-          className="h-7 md:h-8 w-auto"
+          className="h-8 md:h-9 w-auto"
           loading="eager"
         />
       </div>

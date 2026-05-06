@@ -38,7 +38,7 @@ export default function Login() {
           <img
             src={mediacomLogo}
             alt="Mediacom"
-            className="h-8 w-auto mb-3"
+            className="h-9 md:h-10 w-auto mb-3"
             loading="eager"
           />
           <h1 className="text-slate-100 text-2xl font-semibold mt-1">Accesso piattaforma</h1>
