@@ -81,6 +81,16 @@ router.get('/orders', async (req, res, next) => {
       syncMeta = sync?.meta || null;
     }
 
+    if (manualSync && !syncStatus) {
+      syncStatus = 'syncing';
+      syncMeta = {
+        ...(syncMeta || {}),
+        phase: 'orders_live_sync',
+        rangeFrom: dateFrom,
+        rangeTo: dateTo
+      };
+    }
+
     res.json({
       success: true,
       count: orders.length,

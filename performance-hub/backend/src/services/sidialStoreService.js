@@ -153,27 +153,34 @@ export async function upsertOrders(orders = []) {
 
 export async function getOrdersByRange({ dateFrom, dateTo, includeUnattributed = false }) {
   const res = await dbQuery(
-    `select sidial_id,
-            coalesce(
-              created_when,
-              nullif(payload->>'createdWhen', ''),
-              nullif(payload->>'createWhen', ''),
-              nullif(payload->>'date', '')
-            ) as created_when,
-            source, client_id, campaign_id, campaign_name, list_name, internal_campaign_name, details_loaded, payload
-     from sidial_orders
-     where coalesce(
-             created_when,
-             nullif(payload->>'createdWhen', ''),
-             nullif(payload->>'createWhen', ''),
-             nullif(payload->>'date', '')
-           ) >= $1
-       and coalesce(
-             created_when,
-             nullif(payload->>'createdWhen', ''),
-             nullif(payload->>'createWhen', ''),
-             nullif(payload->>'date', '')
-           ) <= $2
+    `select sidial_id, created_when, source, client_id, campaign_id, campaign_name, list_name, internal_campaign_name, details_loaded, payload
+       from sidial_orders
+      where created_when is not null
+        and created_when >= $1
+        and created_when <= $2
+
+      union all
+
+      select sidial_id,
+             coalesce(
+               nullif(payload->>'createdWhen', ''),
+               nullif(payload->>'createWhen', ''),
+               nullif(payload->>'date', '')
+             ) as created_when,
+             source, client_id, campaign_id, campaign_name, list_name, internal_campaign_name, details_loaded, payload
+        from sidial_orders
+       where created_when is null
+         and coalesce(
+               nullif(payload->>'createdWhen', ''),
+               nullif(payload->>'createWhen', ''),
+               nullif(payload->>'date', '')
+             ) >= $1
+         and coalesce(
+               nullif(payload->>'createdWhen', ''),
+               nullif(payload->>'createWhen', ''),
+               nullif(payload->>'date', '')
+             ) <= $2
+
      order by created_when desc nulls last`,
     [dateFrom, dateTo]
   );

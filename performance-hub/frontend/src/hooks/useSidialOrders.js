@@ -36,11 +36,13 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
 
     if (forceSync) {
       try {
-        await api.post('/sidial/orders/sync', {
+        const trigger = await api.post('/sidial/orders/sync', {
           dateFrom,
           dateTo,
           includeUnattributed: includeUnattributed ? 1 : 0
         });
+        setSyncStatus('syncing');
+        setSyncMeta(trigger.data?.syncMeta || { phase: 'orders_live_sync' });
       } catch {
         // Non bloccare la UX: anche se trigger fallisce, proviamo comunque a leggere cache.
       }
@@ -90,11 +92,22 @@ export function useSidialOrders(dateFrom, dateTo, includeUnattributed = false) {
         syncMeta: meta
       });
     } catch (e) {
-      setError(e.message);
+      const existing = readCache(cacheKey);
+      const isTimeout = String(e?.message || '').toLowerCase().includes('timeout');
+      if (isTimeout && existing?.data) {
+        setOrders(existing.data);
+        setFetchedAt(existing.fetchedAt ? new Date(existing.fetchedAt) : null);
+        setLastSyncAt(existing.lastSyncAt ? new Date(existing.lastSyncAt) : null);
+        setSyncStatus(existing.syncStatus || syncStatus || null);
+        setSyncMeta(existing.syncMeta || syncMeta || null);
+        setError(null);
+      } else {
+        setError(e.message);
+      }
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, cacheKey, includeUnattributed]);
+  }, [dateFrom, dateTo, cacheKey, includeUnattributed, syncMeta, syncStatus]);
 
   useEffect(() => { fetch(); }, [fetch]);
 
