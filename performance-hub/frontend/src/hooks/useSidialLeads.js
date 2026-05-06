@@ -45,7 +45,14 @@ export function useSidialLeads(dateFrom, dateTo, type) {
       setLeads(data);
       writeCache(cacheKey, { data, fetchedAt: new Date().toISOString() });
     } catch (e) {
-      setError(e.message);
+      const existing = readCache(cacheKey);
+      const isTimeout = String(e?.message || '').toLowerCase().includes('timeout');
+      if (isTimeout && existing?.data) {
+        setLeads(existing.data);
+        setError(null);
+      } else {
+        setError(e.message);
+      }
     } finally {
       setLoading(false);
     }

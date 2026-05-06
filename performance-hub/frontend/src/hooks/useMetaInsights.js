@@ -51,7 +51,15 @@ export function useMetaInsights(dateFrom, dateTo) {
       setFetchedAt(now);
       writeCache(cacheKey, { data, fetchedAt: now.toISOString() });
     } catch (e) {
-      setError(e.message);
+      const existing = readCache(cacheKey);
+      const isTimeout = String(e?.message || '').toLowerCase().includes('timeout');
+      if (isTimeout && existing?.data) {
+        setInsights(existing.data);
+        setFetchedAt(existing.fetchedAt ? new Date(existing.fetchedAt) : null);
+        setError(null);
+      } else {
+        setError(e.message);
+      }
     } finally {
       setLoading(false);
     }
