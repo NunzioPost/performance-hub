@@ -2,6 +2,7 @@ import { useState } from 'react';
 import api from '../lib/api';
 import CampaignConfigSection from '../components/settings/CampaignConfigSection';
 import UserManagementSection from '../components/settings/UserManagementSection';
+import SectionsAccessSection from '../components/settings/SectionsAccessSection';
 import { scopedKey } from '../lib/cacheScope';
 import { useAuth } from '../context/AuthContext';
 
@@ -79,6 +80,7 @@ export default function Settings() {
         </p>
       </div>
       <div className="flex-1 overflow-y-auto p-6 bg-transparent">
+        {isAdmin && <SectionsAccessSection />}
         {isAdmin && <UserManagementSection />}
         <CampaignConfigSection />
 

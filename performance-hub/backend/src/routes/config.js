@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getCampaignConfig, saveCampaignConfig, getClientCampaignTree } from '../services/campaignConfigService.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { getUiSectionsConfig, saveUiSectionsConfig } from '../services/uiSectionsService.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -34,6 +35,30 @@ router.put('/campaigns', requireRole('admin'), async (req, res, next) => {
     }
 
     const saved = await saveCampaignConfig(nextConfig);
+    res.json({ success: true, data: saved });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// GET /api/config/ui-sections
+router.get('/ui-sections', async (req, res, next) => {
+  try {
+    const config = await getUiSectionsConfig();
+    res.json({ success: true, data: config });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// PUT /api/config/ui-sections
+router.put('/ui-sections', requireRole('admin'), async (req, res, next) => {
+  try {
+    const nextConfig = req.body;
+    if (!nextConfig || typeof nextConfig !== 'object') {
+      return res.status(400).json({ error: true, message: 'Payload UI sections non valido' });
+    }
+    const saved = await saveUiSectionsConfig(nextConfig);
     res.json({ success: true, data: saved });
   } catch (e) {
     next(e);

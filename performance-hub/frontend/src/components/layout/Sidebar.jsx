@@ -6,14 +6,16 @@ import { useEffect, useRef, useState } from 'react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import mediacomLogo from '../../assets/mediacom-logo-verde.svg';
+import { useUiSectionsConfig } from '../../hooks/useUiSectionsConfig';
+import { canAccessSection } from '../../lib/sectionsAccess';
 
 const NAV = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/leads', icon: Users, label: 'Lead' },
-  { to: '/orders', icon: FileText, label: 'Ordini' },
-  { to: '/sidial-history', icon: Database, label: 'Storico SIDIAL' },
-  { to: '/clients-campaigns', icon: BriefcaseBusiness, label: 'Clienti & Campagne' },
-  { to: '/settings', icon: Settings, label: 'Impostazioni' }
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard', sectionKey: 'dashboard' },
+  { to: '/leads', icon: Users, label: 'Lead', sectionKey: 'leads' },
+  { to: '/orders', icon: FileText, label: 'Ordini', sectionKey: 'orders' },
+  { to: '/sidial-history', icon: Database, label: 'Storico SIDIAL', sectionKey: 'sidial_history' },
+  { to: '/clients-campaigns', icon: BriefcaseBusiness, label: 'Clienti & Campagne', sectionKey: 'clients_campaigns' },
+  { to: '/settings', icon: Settings, label: 'Impostazioni', sectionKey: 'settings' }
 ];
 
 function StatusDot({ ok }) {
@@ -23,13 +25,12 @@ function StatusDot({ ok }) {
 }
 
 export default function Sidebar() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, logout } = useAuth();
+  const { sections } = useUiSectionsConfig();
+  const role = String(user?.role || 'user').toLowerCase();
   const [apiStatus, setApiStatus] = useState({ sidial: false, meta: false, google: false });
   const failCountRef = useRef({ sidial: 0, meta: 0, google: 0 });
-  const navItems = NAV.filter((item) => {
-    if (!isAdmin && (item.to === '/settings' || item.to === '/clients-campaigns' || item.to === '/sidial-history')) return false;
-    return true;
-  });
+  const navItems = NAV.filter((item) => canAccessSection(role, sections, item.sectionKey));
 
   useEffect(() => {
     let active = true;

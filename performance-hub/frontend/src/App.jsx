@@ -8,6 +8,8 @@ import ClientCampaigns from './pages/ClientCampaigns';
 import SidialHistory from './pages/SidialHistory';
 import Login from './pages/Login';
 import { useAuth } from './context/AuthContext';
+import { useUiSectionsConfig } from './hooks/useUiSectionsConfig';
+import { canAccessSection, firstAllowedRoute } from './lib/sectionsAccess';
 
 function ProtectedLayout() {
   return (
@@ -35,6 +37,24 @@ function AuthGate({ adminOnly = false }) {
   return <Outlet />;
 }
 
+function SectionGate({ sectionKey }) {
+  const { user } = useAuth();
+  const { sections, loading } = useUiSectionsConfig();
+  const role = String(user?.role || 'user').toLowerCase();
+  const allowed = canAccessSection(role, sections, sectionKey);
+  const fallbackRoute = firstAllowedRoute(role, sections);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
+        Caricamento sezioni...
+      </div>
+    );
+  }
+  if (!allowed) return <Navigate to={fallbackRoute} replace />;
+  return <Outlet />;
+}
+
 function PublicOnlyGate() {
   const { ready, isAuthenticated } = useAuth();
   if (!ready) {
@@ -58,12 +78,22 @@ export default function App() {
 
         <Route element={<AuthGate />}>
           <Route element={<ProtectedLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/leads" element={<Leads />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route element={<AuthGate adminOnly />}>
+            <Route element={<SectionGate sectionKey="dashboard" />}>
+              <Route path="/" element={<Dashboard />} />
+            </Route>
+            <Route element={<SectionGate sectionKey="leads" />}>
+              <Route path="/leads" element={<Leads />} />
+            </Route>
+            <Route element={<SectionGate sectionKey="orders" />}>
+              <Route path="/orders" element={<Orders />} />
+            </Route>
+            <Route element={<SectionGate sectionKey="sidial_history" />}>
               <Route path="/sidial-history" element={<SidialHistory />} />
+            </Route>
+            <Route element={<SectionGate sectionKey="clients_campaigns" />}>
               <Route path="/clients-campaigns" element={<ClientCampaigns />} />
+            </Route>
+            <Route element={<SectionGate sectionKey="settings" />}>
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>
