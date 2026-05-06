@@ -790,10 +790,21 @@ export async function getOrderDetails(orderId) {
   return json;
 }
 
-export async function autoEnrichOrders({ daysBack = 3, maxOrders = 200, logger = console } = {}) {
+export async function autoEnrichOrders({
+  daysBack = 3,
+  maxOrders = 200,
+  logger = console,
+  scope = 'current_month'
+} = {}) {
   const now = new Date();
+  const normalizedScope = String(scope || 'current_month').toLowerCase().trim();
   const from = new Date(now);
-  from.setDate(from.getDate() - Math.max(0, Number(daysBack) || 0));
+  if (normalizedScope === 'current_month') {
+    from.setFullYear(now.getFullYear(), now.getMonth(), 1);
+    from.setHours(0, 0, 0, 0);
+  } else {
+    from.setDate(from.getDate() - Math.max(0, Number(daysBack) || 0));
+  }
 
   const dateFrom = formatDateTime(from, false);
   const dateTo = formatDateTime(now, true);
@@ -819,9 +830,16 @@ export async function autoEnrichOrders({ daysBack = 3, maxOrders = 200, logger =
   return { scanned: orders.length, pending: pending.length, enriched: ok, failed: fail, dateFrom, dateTo };
 }
 
-export async function warmSidialCache({ logger = console } = {}) {
+export async function warmSidialCache({ logger = console, scope = 'current_month' } = {}) {
   const now = new Date();
-  const dateFrom = formatDateTime(now, false);
+  const normalizedScope = String(scope || 'current_month').toLowerCase().trim();
+  const from = new Date(now);
+  if (normalizedScope === 'current_month') {
+    from.setFullYear(now.getFullYear(), now.getMonth(), 1);
+    from.setHours(0, 0, 0, 0);
+  }
+
+  const dateFrom = formatDateTime(from, false);
   const dateTo = formatDateTime(now, true);
   const summary = { dateFrom, dateTo, leads: {}, orders: 0 };
 

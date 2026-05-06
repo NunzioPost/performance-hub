@@ -25,6 +25,7 @@ const PORT = process.env.PORT || 3001;
 const AUTO_ENRICH_ENABLED = String(process.env.AUTO_ENRICH_ENABLED || 'true').toLowerCase() !== 'false';
 const AUTO_ENRICH_INTERVAL_MINUTES = Number(process.env.AUTO_ENRICH_INTERVAL_MINUTES || 18);
 const AUTO_ENRICH_DAYS_BACK = Number(process.env.AUTO_ENRICH_DAYS_BACK || 3);
+const AUTO_ENRICH_SCOPE = String(process.env.AUTO_ENRICH_SCOPE || 'current_month').toLowerCase().trim();
 const AUTO_ENRICH_MAX_ORDERS = Number(process.env.AUTO_ENRICH_MAX_ORDERS || 200);
 const AUTO_ENRICH_START_DELAY_SECONDS = Number(process.env.AUTO_ENRICH_START_DELAY_SECONDS || 45);
 const SIDIAL_WARMUP_ENABLED = String(process.env.SIDIAL_WARMUP_ENABLED || 'true').toLowerCase() !== 'false';
@@ -150,6 +151,7 @@ function startAutoEnrichJob() {
     const startedAt = Date.now();
     try {
       const res = await autoEnrichOrders({
+        scope: AUTO_ENRICH_SCOPE,
         daysBack: AUTO_ENRICH_DAYS_BACK,
         maxOrders: AUTO_ENRICH_MAX_ORDERS,
         logger: console
@@ -166,7 +168,7 @@ function startAutoEnrichJob() {
   };
 
   console.log(
-    `[AUTO-ENRICH] attivo ogni ${AUTO_ENRICH_INTERVAL_MINUTES} minuti (daysBack=${AUTO_ENRICH_DAYS_BACK}, maxOrders=${AUTO_ENRICH_MAX_ORDERS})`
+    `[AUTO-ENRICH] attivo ogni ${AUTO_ENRICH_INTERVAL_MINUTES} minuti (scope=${AUTO_ENRICH_SCOPE}, daysBack=${AUTO_ENRICH_DAYS_BACK}, maxOrders=${AUTO_ENRICH_MAX_ORDERS})`
   );
   setTimeout(() => { run('startup'); }, startDelayMs);
   setInterval(() => { run('interval'); }, intervalMs);
@@ -190,7 +192,7 @@ function startSidialWarmupJob() {
     running = true;
     const startedAt = Date.now();
     try {
-      const res = await warmSidialCache({ logger: console });
+      const res = await warmSidialCache({ logger: console, scope: 'current_month' });
       const elapsed = Date.now() - startedAt;
       console.log(
         `[SIDIAL-WARMUP] ${trigger} ok in ${elapsed}ms | leads.google=${res.leads.google} leads.meta=${res.leads.meta} orders=${res.orders}`
@@ -214,6 +216,13 @@ function formatDate(date, isEnd = false) {
   return `${y}-${m}-${d}${isEnd ? ' 23:59:59' : ' 00:00:00'}`;
 }
 
+function getCurrentMonthDateRange() {
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  return { from, to };
+}
+
 function startMarketingWarmupJob() {
   if (!MARKETING_WARMUP_ENABLED) {
     console.log('[MKT-WARMUP] disabilitato (MARKETING_WARMUP_ENABLED=false)');
@@ -231,9 +240,9 @@ function startMarketingWarmupJob() {
     }
     running = true;
     const startedAt = Date.now();
-    const now = new Date();
-    const dateFrom = formatDate(now, false).split(' ')[0];
-    const dateTo = formatDate(now, true).split(' ')[0];
+    const { from, to } = getCurrentMonthDateRange();
+    const dateFrom = formatDate(from, false).split(' ')[0];
+    const dateTo = formatDate(to, true).split(' ')[0];
 
     try {
       const [meta, google] = await Promise.allSettled([
